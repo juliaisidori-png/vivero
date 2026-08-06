@@ -1,14 +1,14 @@
 let sounds = [];
 const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav'];
-const baseVolumes = [0.052, 0.040, 0.020, 0.144];
-const breathAmp = [0.028, 0.048, 0.022, 0.116];
+const baseVolumes = [0.048, 0.032, 0.014, 0.120];
+const breathAmp = [0.020, 0.036, 0.014, 0.088];
 const periods = [28.6, 22.8, 18.4, 20.5];
 const phases = [0.0, 2.8, 1.3, -0.6];
-const intentaPulse = { strength: 0.018, period: 43.7, phase: 1.8 };
-const llamaInitialDelay = 30.0;
-const llamaGateMin = 12.0;
-const llamaGateMax = 16.0;
-const llamaGateDuration = 7.0;
+const intentaPulse = { strength: 0.024, period: 43.7, phase: 1.8 };
+const llamaInitialDelay = 34.0;
+const llamaGateMin = 14.0;
+const llamaGateMax = 18.0;
+const llamaGateDuration = 6.4;
 let nextLlamaGate = llamaInitialDelay;
 let llamaActiveUntil = 0;
 let llamaDistancePhase = 0;
@@ -57,8 +57,8 @@ function draw() {
     }
     const llamaActive = t < llamaActiveUntil;
     const llamaEnvelope = llamaActive ? sin(PI * ((t - (llamaActiveUntil - llamaGateDuration)) / llamaGateDuration)) : 0;
-    const llamaRhythm = llamaActive ? (0.55 + 0.45 * sin(TWO_PI * (t / 3.2) + llamaPulsePhase)) : 0;
-    const llamaPresence = max(llamaEnvelope, 0) * max(llamaRhythm, 0.18);
+    const llamaRhythm = llamaActive ? (0.45 + 0.35 * sin(TWO_PI * (t / 3.6) + llamaPulsePhase)) : 0;
+    const llamaPresence = max(llamaEnvelope, 0) * max(llamaRhythm, 0.14);
 
     let llamaReturnPresence = 0;
     if (!llamaReturnTriggered && t >= llamaReturnTime) {
@@ -66,11 +66,11 @@ function draw() {
       llamaDistancePhase = random(TWO_PI);
       llamaPulsePhase = random(TWO_PI);
     }
-    if (llamaReturnTriggered && t < llamaReturnTime + 7.5) {
-      const returnProgress = (t - llamaReturnTime) / 7.5;
+    if (llamaReturnTriggered && t < llamaReturnTime + 6.0) {
+      const returnProgress = (t - llamaReturnTime) / 6.0;
       const returnEnvelope = sin(PI * constrain(returnProgress, 0, 1));
-      const returnRhythm = 0.7 + 0.3 * sin(TWO_PI * ((t - llamaReturnTime) / 2.6) + llamaPulsePhase);
-      llamaReturnPresence = returnEnvelope * max(returnRhythm, 0.25);
+      const returnRhythm = 0.6 + 0.24 * sin(TWO_PI * ((t - llamaReturnTime) / 2.8) + llamaPulsePhase);
+      llamaReturnPresence = returnEnvelope * max(returnRhythm, 0.22);
     }
     let totalStrength = 0;
     for (let i = 0; i < sounds.length; i++) {
@@ -78,14 +78,14 @@ function draw() {
       if (snd && snd.isLoaded()) {
         let target = baseVolumes[i] + breathAmp[i] * sin(TWO_PI * (t / periods[i]) + phases[i]);
         if (i === 0) {
-          const distanceFactor = 0.58 + 0.42 * sin(llamaDistancePhase + t * 0.09);
-          const lateArrivalBoost = constrain(1.0 + 0.4 * (1.0 - min((t - 2.8) / 4.0, 1.0)), 1.0, 1.4);
-          const proximityBoost = constrain(1.0 + 0.28 * (llamaPresence + llamaReturnPresence), 1.0, 1.3);
-          target *= (llamaPresence + llamaReturnPresence) * distanceFactor * lateArrivalBoost * proximityBoost;
+          const distanceFactor = 0.54 + 0.34 * sin(llamaDistancePhase + t * 0.08);
+          const arrivalBoost = constrain(1.0 + 0.22 * (1.0 - min((t - 34.0) / 6.0, 1.0)), 1.0, 1.22);
+          const proximityBoost = constrain(1.0 + 0.16 * (llamaPresence + llamaReturnPresence), 1.0, 1.18);
+          target *= (llamaPresence + llamaReturnPresence) * distanceFactor * arrivalBoost * proximityBoost;
         }
         if (i === 2) {
-          const resoplaRamp = constrain((t - 4.6) / 18.0, 0, 1);
-          const resoplaPresence = 0.45 + 0.35 * sin(TWO_PI * (t / 10.4) + 0.8);
+          const resoplaRamp = constrain((t - 7.0) / 22.0, 0, 1);
+          const resoplaPresence = 0.42 + 0.28 * sin(TWO_PI * (t / 11.2) + 0.9);
           target *= resoplaRamp * resoplaPresence;
         }
         if (i === 1) {
@@ -93,9 +93,9 @@ function draw() {
           target += max(pulse, 0);
         }
         if (i === 3) {
-          const crujeBoost = constrain(1.0 + 1.15 * (1.0 - min(t / 1.2, 1.0)), 1.0, 2.15);
-          const earlyPresence = constrain(1.0 + 0.95 * (1.0 - min(t / 1.0, 1.0)), 1.0, 1.95);
-          const lateCue = constrain(1.0 + 0.3 * max(0, 1.0 - abs(t - 40.0) / 14.0), 1.0, 1.3);
+          const crujeBoost = constrain(1.0 + 1.05 * (1.0 - min(t / 1.5, 1.0)), 1.0, 2.05);
+          const earlyPresence = constrain(1.0 + 0.75 * (1.0 - min(t / 1.2, 1.0)), 1.0, 1.75);
+          const lateCue = constrain(1.0 + 0.18 * max(0, 1.0 - abs(t - 40.0) / 16.0), 1.0, 1.18);
           target *= crujeBoost * earlyPresence * lateCue;
         }
         totalStrength += max(target, 0);
