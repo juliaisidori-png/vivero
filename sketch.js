@@ -1,26 +1,33 @@
 let sounds = [];
-let semillaOscs = [];
-let semillaPhase = 0;
 const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav'];
 const baseVolumes = [0.048, 0.032, 0.014, 0.120];
 const breathAmp = [0.020, 0.036, 0.014, 0.088];
 const periods = [28.6, 22.8, 18.4, 20.5];
 const phases = [0.0, 2.8, 1.3, -0.6];
 const intentaPulse = { strength: 0.024, period: 43.7, phase: 1.8 };
-const semillaBaseFreq = 520;
-const semillaParams = { strength: 0.065, modRate: 7.2, modDepth: 60, grainRate: 12.4, grainPhase: 0 };
-const llamaInitialDelay = 50.0;
-const llamaGateMin = 45.0;
-const llamaGateMax = 65.0;
+const llamaInitialDelay = 34.0;
+const llamaGateMin = 14.0;
+const llamaGateMax = 18.0;
 const llamaGateDuration = 6.4;
 let nextLlamaGate = llamaInitialDelay;
 let llamaActiveUntil = 0;
 let llamaDistancePhase = 0;
 let llamaPulsePhase = 0;
-let llamaReturnTime = 120.0;
+let llamaReturnTime = 56.0;
 let llamaReturnTriggered = false;
 let started = false;
 let loadedCount = 0;
+
+function preload() {
+  soundFormats('wav');
+  for (let i = 0; i < soundFiles.length; i++) {
+    const path = './voces/' + soundFiles[i];
+    sounds[i] = loadSound(path,
+      () => { loadedCount += 1; },
+      (err) => { console.warn('No se pudo cargar:', path, err); }
+    );
+  }
+}
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -42,24 +49,6 @@ function draw() {
 
   if (started) {
     const t = millis() * 0.001;
-    semillaPhase = t % 100;
-
-    // vozsemilla: síntesis aditiva con p5.Oscillator
-    if (semillaOscs.length > 0) {
-      const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
-      const modFreq = semillaParams.modRate + 3.2 * sin(TWO_PI * (t / 19.4));
-      const grainEffect = 0.7 + 0.3 * sin(TWO_PI * semillaParams.grainRate * t + semillaParams.grainPhase);
-      const semillaDensity = 0.5 + 0.3 * sin(TWO_PI * (t / 8.6));
-      const baseF = semillaBaseFreq + modAmount * sin(TWO_PI * modFreq * t);
-
-      const freqMults  = [1.0, 2.1, 3.2, 4.9];
-      const ampWeights = [0.30, 0.22, 0.14, 0.09];
-      for (let i = 0; i < semillaOscs.length; i++) {
-        semillaOscs[i].freq(baseF * freqMults[i] * grainEffect);
-        semillaOscs[i].amp(ampWeights[i] * semillaDensity * grainEffect, 0.02);
-      }
-    }
-    
     if (t > nextLlamaGate) {
       nextLlamaGate = t + random(llamaGateMin, llamaGateMax);
       llamaActiveUntil = t + llamaGateDuration;
@@ -89,11 +78,6 @@ function draw() {
       if (snd && snd.isLoaded()) {
         let target = baseVolumes[i] + breathAmp[i] * sin(TWO_PI * (t / periods[i]) + phases[i]);
         if (i === 0) {
-          // llama solo suena durante el gate; forzar 0 cuando no está activa
-          if (llamaPresence + llamaReturnPresence <= 0) {
-            snd.setVolume(0);
-            continue;
-          }
           const distanceFactor = 0.54 + 0.34 * sin(llamaDistancePhase + t * 0.08);
           const arrivalBoost = constrain(1.0 + 0.22 * (1.0 - min((t - 34.0) / 6.0, 1.0)), 1.0, 1.22);
           const proximityBoost = constrain(1.0 + 0.16 * (llamaPresence + llamaReturnPresence), 1.0, 1.18);
@@ -125,29 +109,13 @@ function startAudio() {
   if (started) return;
 
   userStartAudio();
-  soundFormats('wav');
 
-  for (let i = 0; i < soundFiles.length; i++) {
-    const idx = i;
-    const path = './voces/' + soundFiles[idx];
-    sounds[idx] = loadSound(path,
-      () => {
-        loadedCount += 1;
-        sounds[idx].setVolume(0);
-        sounds[idx].loop();
-      },
-      (err) => { console.warn('No se pudo cargar:', path, err); }
-    );
-  }
-
-  // vozsemilla: 4 p5.Oscillators que se auto-conectan a la salida
-  const freqMults = [1.0, 2.1, 3.2, 4.9];
-  for (let i = 0; i < freqMults.length; i++) {
-    const osc = new p5.Oscillator('sine');
-    osc.freq(semillaBaseFreq * freqMults[i]);
-    osc.amp(0);
-    osc.start();
-    semillaOscs.push(osc);
+  for (let i = 0; i < sounds.length; i++) {
+    const snd = sounds[i];
+    if (snd && snd.isLoaded()) {
+      snd.setVolume(baseVolumes[i]);
+      snd.loop();
+    }
   }
 
   started = true;
@@ -165,12 +133,4 @@ function touchStarted() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-}
-
-function stopAudio() {
-  for (let i = 0; i < semillaOscs.length; i++) {
-    semillaOscs[i].stop();
-  }
-  semillaOscs = [];
-  started = false;
 }
