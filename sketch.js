@@ -30,16 +30,6 @@ function setup() {
   textAlign(CENTER, CENTER);
   noStroke();
   fill(255);
-
-  soundFormats('wav');
-  for (let i = 0; i < soundFiles.length; i++) {
-    const idx = i;
-    const path = './voces/' + soundFiles[idx];
-    sounds[idx] = loadSound(path,
-      () => { loadedCount += 1; },
-      (err) => { console.warn('No se pudo cargar:', path, err); }
-    );
-  }
 }
 
 function draw() {
@@ -137,13 +127,20 @@ function startAudio() {
   if (started) return;
 
   userStartAudio();
+  soundFormats('wav');
 
-  for (let i = 0; i < sounds.length; i++) {
-    const snd = sounds[i];
-    if (snd && snd.isLoaded()) {
-      snd.setVolume(baseVolumes[i]);
-      snd.loop();
-    }
+  let pending = soundFiles.length;
+  for (let i = 0; i < soundFiles.length; i++) {
+    const idx = i;
+    const path = './voces/' + soundFiles[idx];
+    sounds[idx] = loadSound(path,
+      () => {
+        loadedCount += 1;
+        sounds[idx].setVolume(baseVolumes[idx]);
+        sounds[idx].loop();
+      },
+      (err) => { console.warn('No se pudo cargar:', path, err); }
+    );
   }
   
   // Acceder al contexto de audio de p5.sound
