@@ -1,11 +1,9 @@
 let sounds = [];
-let semillaOscs = [];
-let semillaPhase = 0;
-const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav'];
-const baseVolumes = [0.048, 0.032, 0.014, 0.120];
-const breathAmp = [0.020, 0.036, 0.014, 0.088];
-const periods = [28.6, 22.8, 18.4, 20.5];
-const phases = [0.0, 2.8, 1.3, -0.6];
+const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav', 'vozsemilla.wav'];
+const baseVolumes = [0.048, 0.032, 0.014, 0.120, 0.040];
+const breathAmp    = [0.020, 0.036, 0.014, 0.088, 0.020];
+const periods      = [28.6, 22.8, 18.4, 20.5, 31.2];
+const phases       = [0.0, 2.8, 1.3, -0.6, 1.1];
 const intentaPulse = { strength: 0.024, period: 43.7, phase: 1.8 };
 const semillaBaseFreq = 780;
 const semillaParams = { modDepth: 18, modRate: 0.28, grainRate: 1.6, grainPhase: 0 };
@@ -44,18 +42,8 @@ function draw() {
     const t = millis() * 0.001;
     semillaPhase = t % 100;
 
-    // vozsemilla: entra lento en 10s, tremolo orgánico a 1.6 Hz
     if (semillaOscs.length > 0) {
-      const rampIn = constrain(t / 10.0, 0, 1);
-      const baseF = semillaBaseFreq + semillaParams.modDepth * sin(TWO_PI * semillaParams.modRate * t);
-      const freqMults  = [1.000, 2.013, 3.027, 4.982];
-      const ampWeights = [0.022, 0.016, 0.011, 0.007];
-      const trPhases   = [0.0,   1.4,   2.8,   4.2];
-      for (let i = 0; i < semillaOscs.length; i++) {
-        const tr = 0.55 + 0.45 * sin(TWO_PI * semillaParams.grainRate * t + trPhases[i]);
-        semillaOscs[i].freq(baseF * freqMults[i]);
-        semillaOscs[i].amp(ampWeights[i] * tr * rampIn, 0.06);
-      }
+      // bloque desactivado - vozsemilla ahora usa WAV
     }
     
     if (t > nextLlamaGate) {
@@ -139,16 +127,6 @@ function startAudio() {
     );
   }
 
-  // vozsemilla: 4 p5.Oscillators que se auto-conectan a la salida
-  const freqMults = [1.0, 2.1, 3.2, 4.9];
-  for (let i = 0; i < freqMults.length; i++) {
-    const osc = new p5.Oscillator('sine');
-    osc.freq(semillaBaseFreq * freqMults[i]);
-    osc.amp(0);
-    osc.start();
-    semillaOscs.push(osc);
-  }
-
   started = true;
 }
 
@@ -167,9 +145,5 @@ function windowResized() {
 }
 
 function stopAudio() {
-  for (let i = 0; i < semillaOscs.length; i++) {
-    semillaOscs[i].stop();
-  }
-  semillaOscs = [];
   started = false;
 }
