@@ -1,5 +1,7 @@
 let sounds = [];
-let semillaOsc, semillaEnv, semillaModOsc;
+let semillaOscillator = null;
+let semillaGain = null;
+let audioContext = null;
 let semillaPhase = 0;
 const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav'];
 const baseVolumes = [0.048, 0.032, 0.014, 0.120];
@@ -39,11 +41,6 @@ function setup() {
   textAlign(CENTER, CENTER);
   noStroke();
   fill(255);
-  
-  // Inicializar síntesis de vozsemilla
-  semillaOsc = new p5.Oscillator('sine');
-  semillaModOsc = new p5.Oscillator('sine');
-  semillaEnv = new p5.Envelope();
 }
 
 function draw() {
@@ -68,8 +65,10 @@ function draw() {
     const semillaDensity = 0.4 + 0.3 * sin(TWO_PI * (t / 8.6));
     const semillaVol = semillaParams.strength * semillaDensity * grainEffect;
     
-    semillaOsc.freq(baseSemillaFreq * grainEffect);
-    semillaOsc.amp(semillaVol, 0.02);
+    if (semillaOscillator) {
+      semillaOscillator.frequency.setValueAtTime(baseSemillaFreq * grainEffect, audioContext.currentTime);
+      semillaGain.gain.setValueAtTime(semillaVol, audioContext.currentTime);
+    }
     
     if (t > nextLlamaGate) {
       nextLlamaGate = t + random(llamaGateMin, llamaGateMax);
@@ -140,9 +139,19 @@ function startAudio() {
     }
   }
   
-  // Iniciar síntesis de vozsemilla
-  semillaOsc.connect();
-  semillaOsc.start();
+  // Crear Web Audio API context para vozsemilla
+  audioContext = getAudioContext();
+  
+  semillaOscillator = audioContext.createOscillator();
+  semillaOscillator.type = 'sine';
+  semillaOscillator.frequency.value = semillaBaseFreq;
+  
+  semillaGain = audioContext.createGain();
+  semillaGain.gain.value = 0;
+  
+  semillaOscillator.connect(semillaGain);
+  semillaGain.connect(audioContext.destination);
+  semillaOscillator.start(audioContext.currentTime);
 
   started = true;
 }
@@ -159,4 +168,15 @@ function touchStarted() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+}
+
+function stopAudio() {
+  if (semillaOscillator) {
+    semillaOscillator.stop();
+    semillaOscillator.disconnect();
+    semillaGain.disconnect();
+    semillaOscillator = null;
+    semillaGain = null;
+  }
+  started = false;
 }
