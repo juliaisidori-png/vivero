@@ -100,8 +100,8 @@ function draw() {
       if (snd && snd.isLoaded()) {
         let target = baseVolumes[i] + breathAmp[i] * sin(TWO_PI * (t / periods[i]) + phases[i]);
         if (i === 4) {
-          // vozsemilla base: casi inaudible; crece levemente con expansión
-          snd.setVolume(0.003 + expansionLevel * 0.010, 2.0);
+          // vozsemilla base: sube claramente con expansión
+          snd.setVolume(0.003 + expansionLevel * 0.060);
           continue;
         }
         if (i === 0) {
@@ -159,21 +159,19 @@ function startAudio() {
     );
   }
 
-  // cargar capas extra con retardo para no competir con los sonidos principales
-  setTimeout(() => {
-    for (let j = 0; j < 3; j++) {
-      const layerIdx = j;
-      const sndLayer = loadSound('./voces/vozsemilla.wav',
-        () => {
-          sndLayer.rate(TOUCH.layerRates[layerIdx]);
-          sndLayer.setVolume(0);
-          sndLayer.loop();
-          semillaLayers[layerIdx] = sndLayer;
-        },
-        err => console.warn('semillaLayer', layerIdx, err)
-      );
-    }
-  }, 3000);
+  // capas extra de vozsemilla a distintas velocidades
+  for (let j = 0; j < 3; j++) {
+    const layerIdx = j;
+    const sndLayer = loadSound('./voces/vozsemilla.wav',
+      () => {
+        sndLayer.rate(TOUCH.layerRates[layerIdx]);
+        sndLayer.setVolume(0);
+        sndLayer.loop();
+        semillaLayers[layerIdx] = sndLayer;
+      },
+      err => console.warn('semillaLayer', layerIdx, err)
+    );
+  }
 
   started = true;
 }
@@ -213,7 +211,7 @@ function updateSemillaLayers() {
     const layer = semillaLayers[i];
     if (!layer || !layer.isLoaded()) continue;
     const layerExp = constrain((expansionLevel - TOUCH.layerThresh[i]) / (1 - TOUCH.layerThresh[i]), 0, 1);
-    layer.setVolume(TOUCH.layerMaxVols[i] * layerExp, 1.5);
+    layer.setVolume(TOUCH.layerMaxVols[i] * layerExp);
   }
 }
 
