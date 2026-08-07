@@ -1,6 +1,5 @@
 let sounds = [];
-let vozsemillaFile = null; // Referencia para análisis
-let semillaOscillators = []; // Array de osciladores para síntesis aditiva
+let semillaOscillators = [];
 let semillaGains = [];
 let audioContext = null;
 let semillaPhase = 0;
@@ -34,11 +33,6 @@ function preload() {
       (err) => { console.warn('No se pudo cargar:', path, err); }
     );
   }
-  // Cargar vozsemilla como referencia para análisis
-  vozsemillaFile = loadSound('./voces/vozsemilla.wav',
-    () => { console.log('vozsemilla.wav cargado'); },
-    (err) => { console.warn('No se pudo cargar vozsemilla.wav:', err); }
-  );
 }
 
 function setup() {
