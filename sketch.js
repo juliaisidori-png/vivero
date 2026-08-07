@@ -12,8 +12,8 @@ const intentaPulse = { strength: 0.024, period: 43.7, phase: 1.8 };
 const semillaBaseFreq = 520;
 const semillaParams = { strength: 0.065, modRate: 7.2, modDepth: 60, grainRate: 12.4, grainPhase: 0 };
 const llamaInitialDelay = 34.0;
-const llamaGateMin = 14.0;
-const llamaGateMax = 18.0;
+const llamaGateMin = 28.0;
+const llamaGateMax = 42.0;
 const llamaGateDuration = 6.4;
 let nextLlamaGate = llamaInitialDelay;
 let llamaActiveUntil = 0;
@@ -52,8 +52,8 @@ function draw() {
       const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
       const grainEffect = 0.7 + 0.3 * sin(TWO_PI * semillaParams.grainRate * t + semillaParams.grainPhase);
       const semillaDensity = 0.4 + 0.3 * sin(TWO_PI * (t / 8.6));
-      // modFactor normalizado 0.3–1.0 para variar amplitud sin hacerla inaudible
-      const modFactor = 0.3 + 0.7 * (semillaDensity * grainEffect);
+      // modFactor nunca baja de 0.6 para que la síntesis siempre sea audible
+      const modFactor = 0.6 + 0.4 * (semillaDensity * grainEffect);
 
       for (let i = 0; i < semillaOscillators.length; i++) {
         const osc = semillaOscillators[i];
@@ -143,13 +143,13 @@ function startAudio() {
   // Acceder al contexto de audio de p5.sound
   audioContext = p5.soundOut.context;
   
-  // amplitudes base audibles en Web Audio API (sumadas ≈ 0.06 total)
+  // amplitudes base audibles en Web Audio API
   const harmonics = [
-    { freq: 1.0,  baseGain: 0.025 },
-    { freq: 2.1,  baseGain: 0.018 },
-    { freq: 3.2,  baseGain: 0.012 },
-    { freq: 4.9,  baseGain: 0.008 },
-    { freq: 6.1,  baseGain: 0.005 }
+    { freq: 1.0,  baseGain: 0.08 },
+    { freq: 2.1,  baseGain: 0.06 },
+    { freq: 3.2,  baseGain: 0.04 },
+    { freq: 4.9,  baseGain: 0.025 },
+    { freq: 6.1,  baseGain: 0.015 }
   ];
   
   for (let i = 0; i < harmonics.length; i++) {
