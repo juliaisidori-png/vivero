@@ -17,22 +17,13 @@ let llamaReturnTime = 120.0;
 let llamaReturnTriggered = false;
 let started = false;
 let loadedCount = 0;
-
-let semillaLayers = [];
 let touchActive = false;
 let touchStartTime = -1;
 let expansionLevel = 0;
 let audioStartTime = -1;
 
-// reemplazar isPressed en updateTouchState() por sensor físico cuando esté disponible
-const TOUCH = {
-  minHold:       1.5,
-  expansionRate: 0.07,
-  decayRate:     0.016,
-  layerRates:    [0.50,  0.72,  0.91],
-  layerMaxVols:  [0.055, 0.045, 0.050],
-  layerThresh:   [0.08,  0.28,  0.55],
-};
+// sustituir mouseIsPressed por lectura del sensor cuando esté disponible
+const TOUCH = { minHold: 1.5, expansionRate: 0.07, decayRate: 0.016 };
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -54,24 +45,26 @@ function draw() {
 
   if (started) {
     noStroke();
-    const barW = width * 0.6 * expansionLevel;
-    fill(255, 255, 255, 50 + expansionLevel * 100);
-    rect(width / 2 - barW / 2, height - 10, barW, 6);
-    fill(touchActive ? 255 : 160);
-    textSize(scale * 0.013);
-    const s4 = sounds[4];
-    const s4info = s4 ? (s4.isLoaded() ? 'cargado' : 'cargando') : 'null';
-    text((touchActive ? 'exp:' + nf(expansionLevel,1,2) : 'clic sostenido') + '  voz4:' + s4info, width / 2, height - 24);
+    fill(255, expansionLevel > 0 ? 255 : 160);
+    textSize(scale * 0.012);
+    text(touchActive ? 'contacto  ' + nf(expansionLevel,1,2) : 'clic sostenido para expandir', width/2, height - 20);
+    fill(255, 255, 255, 40 + expansionLevel * 150);
+    rect(width/2 - width*0.3*expansionLevel, height-8, width*0.6*expansionLevel, 5);
     fill(255);
   }
 
   if (started) {
-    // mouseIsPressed como sensor; ignorar el clic que inició el audio
     const t = millis() * 0.001;
-    const isPressed = mouseIsPressed && (t - audioStartTime > 1.5);
-    if (isPressed && !touchActive) { touchActive = true; touchStartTime = millis() * 0.001; }
-    if (!isPressed) touchActive = false;
-    updateTouchState();
+    // sensor táctil: mouseIsPressed después de 1.5s del inicio
+    const isPressed = mouseIsPressed && started && (t - audioStartTime > 1.5);
+    if (isPressed && !touchActive) { touchActive = true; touchStartTime = t; }
+    else if (!isPressed) { touchActive = false; }
+    const dt = deltaTime / 1000.0;
+    if (touchActive && (t - touchStartTime) > TOUCH.minHold) {
+      expansionLevel = constrain(expansionLevel + TOUCH.expansionRate * dt, 0, 1);
+    } else if (!touchActive) {
+      expansionLevel = constrain(expansionLevel - TOUCH.decayRate * dt, 0, 1);
+    }
     
     if (t > nextLlamaGate) {
       nextLlamaGate = t + random(llamaGateMin, llamaGateMax);
@@ -102,8 +95,8 @@ function draw() {
       if (snd && snd.isLoaded()) {
         let target = baseVolumes[i] + breathAmp[i] * sin(TWO_PI * (t / periods[i]) + phases[i]);
         if (i === 4) {
-          // TEST: cambio muy audible para diagnóstico
-          snd.setVolume(expansionLevel > 0.05 ? 0.20 : 0.003);
+          // vozsemilla: latente siempre, sube con expansión
+          snd.setVolume(0.004 + expansionLevel * 0.080);
           continue;
         }
         if (i === 0) {
@@ -136,7 +129,6 @@ function draw() {
         snd.setVolume(max(target, 0), 0.5);
       }
     }
-    updateSemillaLayers();
   }
 }
 
@@ -145,6 +137,7 @@ function startAudio() {
 
   userStartAudio();
   soundFormats('wav');
+
   audioStartTime = millis() * 0.001;
 
   for (let i = 0; i < soundFiles.length; i++) {
@@ -180,29 +173,4 @@ function windowResized() {
 
 function stopAudio() {
   started = false;
-}
-
-function updateTouchState() {
-  const dt = deltaTime / 1000.0;
-  if (touchActive) {
-    const holdTime = (touchStartTime >= 0) ? millis() * 0.001 - touchStartTime : 0;
-    if (holdTime > TOUCH.minHold) {
-      expansionLevel = constrain(expansionLevel + TOUCH.expansionRate * dt, 0, 1);
-    }
-  } else {
-    expansionLevel = constrain(expansionLevel - TOUCH.decayRate * dt, 0, 1);
-  }
-}
-
-function updateSemillaLayers() {
-  // capas extra desactivadas para diagnóstico
-}
-
-function keyPressed() {
-  // reservado para sensor físico futuro
-  return false; // prevenir comportamiento default del browser
-}
-
-function keyReleased() {
-  // reservado para sensor físico futuro
 }
