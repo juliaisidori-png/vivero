@@ -59,7 +59,9 @@ function draw() {
     rect(width / 2 - barW / 2, height - 10, barW, 6);
     fill(touchActive ? 255 : 160);
     textSize(scale * 0.013);
-    text(touchActive ? 'contacto activo  ' + nf(expansionLevel, 1, 2) : 'clic sostenido para expandir', width / 2, height - 24);
+    const s4 = sounds[4];
+    const s4info = s4 ? (s4.isLoaded() ? 'cargado' : 'cargando') : 'null';
+    text((touchActive ? 'exp:' + nf(expansionLevel,1,2) : 'clic sostenido') + '  voz4:' + s4info, width / 2, height - 24);
     fill(255);
   }
 
@@ -100,8 +102,8 @@ function draw() {
       if (snd && snd.isLoaded()) {
         let target = baseVolumes[i] + breathAmp[i] * sin(TWO_PI * (t / periods[i]) + phases[i]);
         if (i === 4) {
-          // vozsemilla base: sube claramente con expansión
-          snd.setVolume(0.003 + expansionLevel * 0.060);
+          // TEST: cambio muy audible para diagnóstico
+          snd.setVolume(expansionLevel > 0.05 ? 0.20 : 0.003);
           continue;
         }
         if (i === 0) {
@@ -159,20 +161,6 @@ function startAudio() {
     );
   }
 
-  // capas extra de vozsemilla a distintas velocidades
-  for (let j = 0; j < 3; j++) {
-    const layerIdx = j;
-    const sndLayer = loadSound('./voces/vozsemilla.wav',
-      () => {
-        sndLayer.rate(TOUCH.layerRates[layerIdx]);
-        sndLayer.setVolume(0);
-        sndLayer.loop();
-        semillaLayers[layerIdx] = sndLayer;
-      },
-      err => console.warn('semillaLayer', layerIdx, err)
-    );
-  }
-
   started = true;
 }
 
@@ -207,12 +195,7 @@ function updateTouchState() {
 }
 
 function updateSemillaLayers() {
-  for (let i = 0; i < 3; i++) {
-    const layer = semillaLayers[i];
-    if (!layer || !layer.isLoaded()) continue;
-    const layerExp = constrain((expansionLevel - TOUCH.layerThresh[i]) / (1 - TOUCH.layerThresh[i]), 0, 1);
-    layer.setVolume(TOUCH.layerMaxVols[i] * layerExp);
-  }
+  // capas extra desactivadas para diagnóstico
 }
 
 function keyPressed() {
