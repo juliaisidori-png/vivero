@@ -18,6 +18,21 @@ let llamaReturnTriggered = false;
 let started = false;
 let loadedCount = 0;
 
+let semillaLayers = [];
+let touchActive = false;
+let touchStartTime = -1;
+let expansionLevel = 0;
+
+// reemplazar isPressed en updateTouchState() por sensor físico cuando esté disponible
+const TOUCH = {
+  minHold:       2.8,
+  expansionRate: 0.038,
+  decayRate:     0.016,
+  layerRates:    [0.50,  0.72,  0.91],
+  layerMaxVols:  [0.018, 0.015, 0.020],
+  layerThresh:   [0.15,  0.40,  0.70],
+};
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   textFont('Roboto');
@@ -38,6 +53,7 @@ function draw() {
 
   if (started) {
     const t = millis() * 0.001;
+    updateTouchState();
     
     if (t > nextLlamaGate) {
       nextLlamaGate = t + random(llamaGateMin, llamaGateMax);
@@ -67,6 +83,11 @@ function draw() {
       const snd = sounds[i];
       if (snd && snd.isLoaded()) {
         let target = baseVolumes[i] + breathAmp[i] * sin(TWO_PI * (t / periods[i]) + phases[i]);
+        if (i === 4) {
+          // vozsemilla base: casi inaudible; crece levemente con expansión
+          snd.setVolume(0.003 + expansionLevel * 0.010, 2.0);
+          continue;
+        }
         if (i === 0) {
           // llama solo suena durante el gate; forzar 0 cuando no está activa
           if (llamaPresence + llamaReturnPresence <= 0) {
@@ -97,6 +118,7 @@ function draw() {
         snd.setVolume(max(target, 0), 0.5);
       }
     }
+    updateSemillaLayers();
   }
 }
 
@@ -120,6 +142,19 @@ function startAudio() {
     );
   }
 
+  for (let j = 0; j < 3; j++) {
+    const layerIdx = j;
+    const sndLayer = loadSound('./voces/vozsemilla.wav',
+      () => {
+        sndLayer.rate(TOUCH.layerRates[layerIdx]);
+        sndLayer.setVolume(0);
+        sndLayer.loop();
+        semillaLayers[layerIdx] = sndLayer;
+      },
+      err => console.warn('semillaLayer', layerIdx, err)
+    );
+  }
+
   started = true;
 }
 
@@ -139,4 +174,39 @@ function windowResized() {
 
 function stopAudio() {
   started = false;
+}
+
+function updateTouchState() {
+  const dt = deltaTime / 1000.0;
+  if (touchActive) {
+    const holdTime = (touchStartTime >= 0) ? millis() * 0.001 - touchStartTime : 0;
+    if (holdTime > TOUCH.minHold) {
+      expansionLevel = constrain(expansionLevel + TOUCH.expansionRate * dt, 0, 1);
+    }
+  } else {
+    expansionLevel = constrain(expansionLevel - TOUCH.decayRate * dt, 0, 1);
+  }
+}
+
+function updateSemillaLayers() {
+  for (let i = 0; i < 3; i++) {
+    const layer = semillaLayers[i];
+    if (!layer || !layer.isLoaded()) continue;
+    const layerExp = constrain((expansionLevel - TOUCH.layerThresh[i]) / (1 - TOUCH.layerThresh[i]), 0, 1);
+    layer.setVolume(TOUCH.layerMaxVols[i] * layerExp, 3.0);
+  }
+}
+
+function keyPressed() {
+  if (!started) return;
+  if (key === 'T' || key === 't') {
+    if (!touchActive) {
+      touchActive = true;
+      touchStartTime = millis() * 0.001;
+    }
+  }
+}
+
+function keyReleased() {
+  if (key === 'T' || key === 't') touchActive = false;
 }
