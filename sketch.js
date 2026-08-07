@@ -1,6 +1,7 @@
 let sounds = [];
-let semillaOscillator = null;
-let semillaGain = null;
+let vozsemillaFile = null; // Referencia para análisis
+let semillaOscillators = []; // Array de osciladores para síntesis aditiva
+let semillaGains = [];
 let audioContext = null;
 let semillaPhase = 0;
 const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav'];
@@ -33,6 +34,11 @@ function preload() {
       (err) => { console.warn('No se pudo cargar:', path, err); }
     );
   }
+  // Cargar vozsemilla como referencia para análisis
+  vozsemillaFile = loadSound('./voces/vozsemilla.wav',
+    () => { console.log('vozsemilla.wav cargado'); },
+    (err) => { console.warn('No se pudo cargar vozsemilla.wav:', err); }
+  );
 }
 
 function setup() {
@@ -57,7 +63,8 @@ function draw() {
     const t = millis() * 0.001;
     semillaPhase = t % 100;
     
-    if (semillaOscillator) {
+    // Síntesis aditiva: modular múltiples osciladores
+    if (semillaOscillators.length > 0) {
       const modFreq = semillaParams.modRate + 3.2 * sin(TWO_PI * (t / 19.4));
       const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
       const baseSemillaFreq = semillaBaseFreq + modAmount * sin(TWO_PI * (t / (1.0 / modFreq)));
@@ -65,8 +72,16 @@ function draw() {
       const semillaDensity = 0.4 + 0.3 * sin(TWO_PI * (t / 8.6));
       const semillaVol = semillaParams.strength * semillaDensity * grainEffect;
       
-      semillaOscillator.freq(baseSemillaFreq * grainEffect);
-      semillaOscillator.amp(semillaVol);
+      // Aplicar modulación a cada oscilador
+      for (let i = 0; i < semillaOscillators.length; i++) {
+        const osc = semillaOscillators[i];
+        const gainData = semillaGains[i];
+        const harmonicFreq = semillaBaseFreq * gainData.harmonic.freq;
+        
+        // Modular la frecuencia y amplitud de cada armónico
+        osc.frequency.setValueAtTime(harmonicFreq * grainEffect, audioContext.currentTime);
+        gainData.gain.gain.setValueAtTime(gainData.harmonic.amp * semillaVol, audioContext.currentTime);
+      }
     }
     
     if (t > nextLlamaGate) {
@@ -141,17 +156,31 @@ function startAudio() {
   // Acceder al contexto de audio de p5.sound
   audioContext = p5.soundOut.context;
   
-  // Crear oscilador conectado directamente a p5.soundOut
-  semillaOscillator = audioContext.createOscillator();
-  semillaOscillator.type = 'sine';
-  semillaOscillator.frequency.value = semillaBaseFreq;
+  // Síntesis aditiva: crear múltiples osciladores con diferentes armónicos
+  // Esto imita mejor la textura de vozsemilla.wav
+  const harmonics = [
+    { freq: 1.0, amp: 0.4 },   // Fundamental
+    { freq: 2.1, amp: 0.3 },   // 2do armónico (ligeramente desafinado)
+    { freq: 3.2, amp: 0.2 },   // 3er armónico
+    { freq: 4.9, amp: 0.15 },  // 5to armónico
+    { freq: 6.1, amp: 0.1 }    // 6to armónico
+  ];
   
-  semillaGain = audioContext.createGain();
-  semillaGain.gain.value = 0.1;
-  
-  semillaOscillator.connect(semillaGain);
-  semillaGain.connect(p5.soundOut.destination);
-  semillaOscillator.start(audioContext.currentTime);
+  for (let i = 0; i < harmonics.length; i++) {
+    const osc = audioContext.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = semillaBaseFreq * harmonics[i].freq;
+    
+    const gain = audioContext.createGain();
+    gain.gain.value = harmonics[i].amp * 0.05; // Suave amplitud base
+    
+    osc.connect(gain);
+    gain.connect(p5.soundOut.destination);
+    osc.start(audioContext.currentTime);
+    
+    semillaOscillators.push(osc);
+    semillaGains.push({ gain, harmonic: harmonics[i] });
+  }
 
   started = true;
 }
@@ -171,10 +200,23 @@ function windowResized() {
 }
 
 function stopAudio() {
-  if (semillaOscillator) {
-    semillaOscillator.stop();
-    semillaOscillator.disconnect();
-    semillaOscillator = null;
+  for (let i = 0; i < semillaOscillators.length; i++) {
+    semillaOscillators[i].stop();
+    semillaOscillators[i].disconnect();
+    semillaGains[i].gain.disconnect();
   }
+  semillaOscillators = [];
+  semillaGains = [];
+  started = false;
+}
+
+function stopAudio() {
+  for (let i = 0; i < semillaOscillators.length; i++) {
+    semillaOscillators[i].stop();
+    semillaOscillators[i].disconnect();
+    semillaGains[i].gain.disconnect();
+  }
+  semillaOscillators = [];
+  semillaGains = [];
   started = false;
 }
