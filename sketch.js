@@ -50,20 +50,17 @@ function draw() {
     if (semillaOscillators.length > 0) {
       const modFreq = semillaParams.modRate + 3.2 * sin(TWO_PI * (t / 19.4));
       const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
-      const baseSemillaFreq = semillaBaseFreq + modAmount * sin(TWO_PI * (t / (1.0 / modFreq)));
       const grainEffect = 0.7 + 0.3 * sin(TWO_PI * semillaParams.grainRate * t + semillaParams.grainPhase);
       const semillaDensity = 0.4 + 0.3 * sin(TWO_PI * (t / 8.6));
-      const semillaVol = semillaParams.strength * semillaDensity * grainEffect;
-      
-      // Aplicar modulación a cada oscilador
+      // modFactor normalizado 0.3–1.0 para variar amplitud sin hacerla inaudible
+      const modFactor = 0.3 + 0.7 * (semillaDensity * grainEffect);
+
       for (let i = 0; i < semillaOscillators.length; i++) {
         const osc = semillaOscillators[i];
         const gainData = semillaGains[i];
-        const harmonicFreq = semillaBaseFreq * gainData.harmonic.freq;
-        
-        // Modular la frecuencia y amplitud de cada armónico
-        osc.frequency.setValueAtTime(harmonicFreq * grainEffect, audioContext.currentTime);
-        gainData.gain.gain.setValueAtTime(gainData.harmonic.amp * semillaVol, audioContext.currentTime);
+        const harmonicFreq = semillaBaseFreq + modAmount * sin(TWO_PI * (t / (1.0 / modFreq)));
+        osc.frequency.setValueAtTime(harmonicFreq * gainData.harmonic.freq * grainEffect, audioContext.currentTime);
+        gainData.gain.gain.setValueAtTime(gainData.harmonic.baseGain * modFactor, audioContext.currentTime);
       }
     }
     
@@ -146,14 +143,13 @@ function startAudio() {
   // Acceder al contexto de audio de p5.sound
   audioContext = p5.soundOut.context;
   
-  // Síntesis aditiva: crear múltiples osciladores con diferentes armónicos
-  // Esto imita mejor la textura de vozsemilla.wav
+  // amplitudes base audibles en Web Audio API (sumadas ≈ 0.06 total)
   const harmonics = [
-    { freq: 1.0, amp: 0.4 },   // Fundamental
-    { freq: 2.1, amp: 0.3 },   // 2do armónico (ligeramente desafinado)
-    { freq: 3.2, amp: 0.2 },   // 3er armónico
-    { freq: 4.9, amp: 0.15 },  // 5to armónico
-    { freq: 6.1, amp: 0.1 }    // 6to armónico
+    { freq: 1.0,  baseGain: 0.025 },
+    { freq: 2.1,  baseGain: 0.018 },
+    { freq: 3.2,  baseGain: 0.012 },
+    { freq: 4.9,  baseGain: 0.008 },
+    { freq: 6.1,  baseGain: 0.005 }
   ];
   
   for (let i = 0; i < harmonics.length; i++) {
@@ -162,7 +158,7 @@ function startAudio() {
     osc.frequency.value = semillaBaseFreq * harmonics[i].freq;
     
     const gain = audioContext.createGain();
-    gain.gain.value = harmonics[i].amp * 0.05; // Suave amplitud base
+    gain.gain.value = harmonics[i].baseGain;
     
     osc.connect(gain);
     gain.connect(p5.soundOut.destination);
