@@ -44,8 +44,6 @@ function setup() {
   semillaOsc = new p5.Oscillator('sine');
   semillaModOsc = new p5.Oscillator('sine');
   semillaEnv = new p5.Envelope();
-  semillaOsc.disconnect();
-  semillaModOsc.disconnect();
 }
 
 function draw() {
@@ -143,6 +141,7 @@ function startAudio() {
   }
   
   // Iniciar síntesis de vozsemilla
+  semillaOsc.connect();
   semillaOsc.start();
 
   started = true;
