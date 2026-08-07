@@ -133,7 +133,7 @@ function startAudio() {
     sounds[idx] = loadSound(path,
       () => {
         loadedCount += 1;
-        sounds[idx].setVolume(baseVolumes[idx]);
+        sounds[idx].setVolume(0);
         sounds[idx].loop();
       },
       (err) => { console.warn('No se pudo cargar:', path, err); }
@@ -160,7 +160,7 @@ function startAudio() {
     gain.gain.value = harmonics[i].baseGain;
     
     osc.connect(gain);
-    gain.connect(p5.soundOut.destination);
+    gain.connect(p5.soundOut);
     osc.start(audioContext.currentTime);
     
     semillaOscillators.push(osc);
