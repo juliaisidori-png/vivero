@@ -143,13 +143,12 @@ function startAudio() {
   // Acceder al contexto de audio de p5.sound
   audioContext = p5.soundOut.context;
   
-  // amplitudes base audibles en Web Audio API
   const harmonics = [
-    { freq: 1.0,  baseGain: 0.08 },
-    { freq: 2.1,  baseGain: 0.06 },
-    { freq: 3.2,  baseGain: 0.04 },
-    { freq: 4.9,  baseGain: 0.025 },
-    { freq: 6.1,  baseGain: 0.015 }
+    { freq: 1.0,  baseGain: 0.35 },
+    { freq: 2.1,  baseGain: 0.25 },
+    { freq: 3.2,  baseGain: 0.15 },
+    { freq: 4.9,  baseGain: 0.10 },
+    { freq: 6.1,  baseGain: 0.06 }
   ];
   
   for (let i = 0; i < harmonics.length; i++) {
