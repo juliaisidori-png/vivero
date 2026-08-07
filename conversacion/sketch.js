@@ -25,12 +25,12 @@ let expansionLevel = 0;
 
 // reemplazar isPressed en updateTouchState() por sensor físico cuando esté disponible
 const TOUCH = {
-  minHold:       2.8,
-  expansionRate: 0.038,
+  minHold:       1.5,
+  expansionRate: 0.07,
   decayRate:     0.016,
   layerRates:    [0.50,  0.72,  0.91],
-  layerMaxVols:  [0.018, 0.015, 0.020],
-  layerThresh:   [0.15,  0.40,  0.70],
+  layerMaxVols:  [0.040, 0.032, 0.036],
+  layerThresh:   [0.08,  0.28,  0.55],
 };
 
 function setup() {
@@ -50,6 +50,15 @@ function draw() {
   text('Organismo 01', width / 2, height / 2 + scale * 0.03);
   textSize(scale * 0.018);
   text('(hacé clic para escuchar)', width / 2, height / 2 + scale * 0.12);
+
+  // indicador de expansión: línea sutil en la parte inferior
+  if (started && expansionLevel > 0) {
+    noStroke();
+    fill(255, 255, 255, 60 + expansionLevel * 80);
+    const barW = width * expansionLevel * 0.6;
+    rect(width / 2 - barW / 2, height - 3, barW, 2);
+    fill(255);
+  }
 
   if (started) {
     const t = millis() * 0.001;
@@ -193,7 +202,7 @@ function updateSemillaLayers() {
     const layer = semillaLayers[i];
     if (!layer || !layer.isLoaded()) continue;
     const layerExp = constrain((expansionLevel - TOUCH.layerThresh[i]) / (1 - TOUCH.layerThresh[i]), 0, 1);
-    layer.setVolume(TOUCH.layerMaxVols[i] * layerExp, 3.0);
+    layer.setVolume(TOUCH.layerMaxVols[i] * layerExp, 1.5);
   }
 }
 
