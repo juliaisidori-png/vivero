@@ -51,22 +51,21 @@ function draw() {
   textSize(scale * 0.018);
   text('(hacé clic para escuchar)', width / 2, height / 2 + scale * 0.12);
 
-  // indicador de expansión visible durante el desarrollo
   if (started) {
     noStroke();
-    fill(255, 255, 255, 40 + expansionLevel * 120);
-    const barW = width * expansionLevel * 0.8;
-    rect(width / 2 - barW / 2, height - 8, barW, 6);
-    fill(touchActive ? color(255,255,180) : color(180,180,180), 150);
-    textSize(scale * 0.014);
-    text(touchActive ? 'T activa  exp:' + nf(expansionLevel,1,2) : 'manté ↑ para expandir', width / 2, height - 22);
+    const barW = width * 0.6 * expansionLevel;
+    fill(255, 255, 255, 50 + expansionLevel * 100);
+    rect(width / 2 - barW / 2, height - 10, barW, 6);
+    fill(touchActive ? 255 : 160);
+    textSize(scale * 0.013);
+    text(touchActive ? 'contacto activo  ' + nf(expansionLevel, 1, 2) : 'clic sostenido para expandir', width / 2, height - 24);
     fill(255);
   }
 
   if (started) {
     const t = millis() * 0.001;
-    // UP arrow (keyCode 38) como sustituto del sensor táctil
-    const isPressed = keyIsDown(38);
+    // mouseIsPressed como sustituto del sensor táctil
+    const isPressed = mouseIsPressed;
     if (isPressed && !touchActive) { touchActive = true; touchStartTime = millis() * 0.001; }
     if (!isPressed) touchActive = false;
     updateTouchState();
@@ -215,6 +214,7 @@ function updateSemillaLayers() {
 
 function keyPressed() {
   // reservado para sensor físico futuro
+  return false; // prevenir comportamiento default del browser
 }
 
 function keyReleased() {
