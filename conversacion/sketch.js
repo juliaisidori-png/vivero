@@ -5,8 +5,6 @@ const breathAmp    = [0.020, 0.036, 0.014, 0.088, 0.020];
 const periods      = [28.6, 22.8, 18.4, 20.5, 31.2];
 const phases       = [0.0, 2.8, 1.3, -0.6, 1.1];
 const intentaPulse = { strength: 0.024, period: 43.7, phase: 1.8 };
-const semillaBaseFreq = 780;
-const semillaParams = { modDepth: 18, modRate: 0.28, grainRate: 1.6, grainPhase: 0 };
 const llamaInitialDelay = 50.0;
 const llamaGateMin = 45.0;
 const llamaGateMax = 65.0;
@@ -40,11 +38,6 @@ function draw() {
 
   if (started) {
     const t = millis() * 0.001;
-    semillaPhase = t % 100;
-
-    if (semillaOscs.length > 0) {
-      // bloque desactivado - vozsemilla ahora usa WAV
-    }
     
     if (t > nextLlamaGate) {
       nextLlamaGate = t + random(llamaGateMin, llamaGateMax);
