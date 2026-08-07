@@ -1,10 +1,14 @@
 let sounds = [];
+let semillaOsc, semillaEnv, semillaModOsc;
+let semillaPhase = 0;
 const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav'];
 const baseVolumes = [0.048, 0.032, 0.014, 0.120];
 const breathAmp = [0.020, 0.036, 0.014, 0.088];
 const periods = [28.6, 22.8, 18.4, 20.5];
 const phases = [0.0, 2.8, 1.3, -0.6];
 const intentaPulse = { strength: 0.024, period: 43.7, phase: 1.8 };
+const semillaBaseFreq = 285;
+const semillaParams = { strength: 0.008, modRate: 7.2, modDepth: 45, grainRate: 12.4, grainPhase: 0 };
 const llamaInitialDelay = 34.0;
 const llamaGateMin = 14.0;
 const llamaGateMax = 18.0;
@@ -35,6 +39,13 @@ function setup() {
   textAlign(CENTER, CENTER);
   noStroke();
   fill(255);
+  
+  // Inicializar síntesis de vozsemilla
+  semillaOsc = new p5.Oscillator('sine');
+  semillaModOsc = new p5.Oscillator('sine');
+  semillaEnv = new p5.Envelope();
+  semillaOsc.disconnect();
+  semillaModOsc.disconnect();
 }
 
 function draw() {
@@ -49,6 +60,19 @@ function draw() {
 
   if (started) {
     const t = millis() * 0.001;
+    semillaPhase = t % 100;
+    
+    // Síntesis de vozsemilla: FM modulation para textura granular
+    const modFreq = semillaParams.modRate + 3.2 * sin(TWO_PI * (t / 19.4));
+    const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
+    const baseSemillaFreq = semillaBaseFreq + modAmount * sin(TWO_PI * (t / (1.0 / modFreq)));
+    const grainEffect = 0.7 + 0.3 * sin(TWO_PI * semillaParams.grainRate * t + semillaParams.grainPhase);
+    const semillaDensity = 0.4 + 0.3 * sin(TWO_PI * (t / 8.6));
+    const semillaVol = semillaParams.strength * semillaDensity * grainEffect;
+    
+    semillaOsc.freq(baseSemillaFreq * grainEffect);
+    semillaOsc.amp(semillaVol, 0.02);
+    
     if (t > nextLlamaGate) {
       nextLlamaGate = t + random(llamaGateMin, llamaGateMax);
       llamaActiveUntil = t + llamaGateDuration;
@@ -117,6 +141,9 @@ function startAudio() {
       snd.loop();
     }
   }
+  
+  // Iniciar síntesis de vozsemilla
+  semillaOsc.start();
 
   started = true;
 }
