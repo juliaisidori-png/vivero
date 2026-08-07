@@ -7,8 +7,8 @@ const breathAmp = [0.020, 0.036, 0.014, 0.088];
 const periods = [28.6, 22.8, 18.4, 20.5];
 const phases = [0.0, 2.8, 1.3, -0.6];
 const intentaPulse = { strength: 0.024, period: 43.7, phase: 1.8 };
-const semillaBaseFreq = 520;
-const semillaParams = { strength: 0.065, modRate: 7.2, modDepth: 60, grainRate: 12.4, grainPhase: 0 };
+const semillaBaseFreq = 780;
+const semillaParams = { modDepth: 18, modRate: 0.28, grainRate: 1.6, grainPhase: 0 };
 const llamaInitialDelay = 50.0;
 const llamaGateMin = 45.0;
 const llamaGateMax = 65.0;
@@ -34,7 +34,7 @@ function draw() {
   background(0);
   const scale = min(width, height);
   textSize(scale * 0.09);
-  text('Vivero', width / 2, height / 2 - scale * 0.08);
+  text('Conversación', width / 2, height / 2 - scale * 0.08);
   textSize(scale * 0.032);
   text('Organismo 01', width / 2, height / 2 + scale * 0.03);
   textSize(scale * 0.018);
@@ -44,19 +44,17 @@ function draw() {
     const t = millis() * 0.001;
     semillaPhase = t % 100;
 
-    // vozsemilla: síntesis aditiva con p5.Oscillator
+    // vozsemilla: entra lento en 10s, tremolo orgánico a 1.6 Hz
     if (semillaOscs.length > 0) {
-      const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
-      const modFreq = semillaParams.modRate + 3.2 * sin(TWO_PI * (t / 19.4));
-      const grainEffect = 0.7 + 0.3 * sin(TWO_PI * semillaParams.grainRate * t + semillaParams.grainPhase);
-      const semillaDensity = 0.5 + 0.3 * sin(TWO_PI * (t / 8.6));
-      const baseF = semillaBaseFreq + modAmount * sin(TWO_PI * modFreq * t);
-
-      const freqMults  = [1.0, 2.1, 3.2, 4.9];
-      const ampWeights = [0.30, 0.22, 0.14, 0.09];
+      const rampIn = constrain(t / 10.0, 0, 1);
+      const baseF = semillaBaseFreq + semillaParams.modDepth * sin(TWO_PI * semillaParams.modRate * t);
+      const freqMults  = [1.000, 2.013, 3.027, 4.982];
+      const ampWeights = [0.022, 0.016, 0.011, 0.007];
+      const trPhases   = [0.0,   1.4,   2.8,   4.2];
       for (let i = 0; i < semillaOscs.length; i++) {
-        semillaOscs[i].freq(baseF * freqMults[i] * grainEffect);
-        semillaOscs[i].amp(ampWeights[i] * semillaDensity * grainEffect, 0.02);
+        const tr = 0.55 + 0.45 * sin(TWO_PI * semillaParams.grainRate * t + trPhases[i]);
+        semillaOscs[i].freq(baseF * freqMults[i]);
+        semillaOscs[i].amp(ampWeights[i] * tr * rampIn, 0.06);
       }
     }
     
@@ -133,7 +131,8 @@ function startAudio() {
     sounds[idx] = loadSound(path,
       () => {
         loadedCount += 1;
-        sounds[idx].setVolume(0);
+        // llama empieza en silencio; el gate controla su volumen
+        sounds[idx].setVolume(idx === 0 ? 0 : baseVolumes[idx]);
         sounds[idx].loop();
       },
       (err) => { console.warn('No se pudo cargar:', path, err); }
