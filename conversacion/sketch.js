@@ -1,7 +1,7 @@
 let sounds = [];
 const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav', 'vozsemilla.wav'];
-const baseVolumes = [0.048, 0.032, 0.014, 0.120, 0.040];
-const breathAmp    = [0.020, 0.036, 0.014, 0.088, 0.020];
+const baseVolumes = [0.048, 0.032, 0.014, 0.120, 0.022];
+const breathAmp    = [0.020, 0.036, 0.014, 0.088, 0.010];
 const periods      = [28.6, 22.8, 18.4, 20.5, 31.2];
 const phases       = [0.0, 2.8, 1.3, -0.6, 1.1];
 const intentaPulse = { strength: 0.024, period: 43.7, phase: 1.8 };
