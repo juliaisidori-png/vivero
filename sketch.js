@@ -1,7 +1,6 @@
 let sounds = [];
 let semillaOscillator = null;
 let semillaGain = null;
-let audioContext = null;
 let semillaPhase = 0;
 const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav'];
 const baseVolumes = [0.048, 0.032, 0.014, 0.120];
@@ -57,17 +56,16 @@ function draw() {
     const t = millis() * 0.001;
     semillaPhase = t % 100;
     
-    // Síntesis de vozsemilla: FM modulation para textura granular
-    const modFreq = semillaParams.modRate + 3.2 * sin(TWO_PI * (t / 19.4));
-    const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
-    const baseSemillaFreq = semillaBaseFreq + modAmount * sin(TWO_PI * (t / (1.0 / modFreq)));
-    const grainEffect = 0.7 + 0.3 * sin(TWO_PI * semillaParams.grainRate * t + semillaParams.grainPhase);
-    const semillaDensity = 0.4 + 0.3 * sin(TWO_PI * (t / 8.6));
-    const semillaVol = semillaParams.strength * semillaDensity * grainEffect;
-    
     if (semillaOscillator) {
-      semillaOscillator.frequency.setValueAtTime(baseSemillaFreq * grainEffect, audioContext.currentTime);
-      semillaGain.gain.setValueAtTime(semillaVol, audioContext.currentTime);
+      const modFreq = semillaParams.modRate + 3.2 * sin(TWO_PI * (t / 19.4));
+      const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
+      const baseSemillaFreq = semillaBaseFreq + modAmount * sin(TWO_PI * (t / (1.0 / modFreq)));
+      const grainEffect = 0.7 + 0.3 * sin(TWO_PI * semillaParams.grainRate * t + semillaParams.grainPhase);
+      const semillaDensity = 0.4 + 0.3 * sin(TWO_PI * (t / 8.6));
+      const semillaVol = semillaParams.strength * semillaDensity * grainEffect;
+      
+      semillaOscillator.freq(baseSemillaFreq * grainEffect);
+      semillaOscillator.amp(semillaVol);
     }
     
     if (t > nextLlamaGate) {
@@ -139,19 +137,11 @@ function startAudio() {
     }
   }
   
-  // Crear Web Audio API context para vozsemilla
-  audioContext = getAudioContext();
-  
-  semillaOscillator = audioContext.createOscillator();
-  semillaOscillator.type = 'sine';
-  semillaOscillator.frequency.value = semillaBaseFreq;
-  
-  semillaGain = audioContext.createGain();
-  semillaGain.gain.value = 0;
-  
-  semillaOscillator.connect(semillaGain);
-  semillaGain.connect(audioContext.destination);
-  semillaOscillator.start(audioContext.currentTime);
+  // Crear oscilador de vozsemilla usando p5.js
+  semillaOscillator = new p5.Oscillator('sine');
+  semillaOscillator.freq(semillaBaseFreq);
+  semillaOscillator.amp(0);
+  semillaOscillator.start();
 
   started = true;
 }
@@ -174,9 +164,7 @@ function stopAudio() {
   if (semillaOscillator) {
     semillaOscillator.stop();
     semillaOscillator.disconnect();
-    semillaGain.disconnect();
     semillaOscillator = null;
-    semillaGain = null;
   }
   started = false;
 }
