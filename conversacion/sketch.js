@@ -22,6 +22,7 @@ let semillaLayers = [];
 let touchActive = false;
 let touchStartTime = -1;
 let expansionLevel = 0;
+let audioStartTime = -1;
 
 // reemplazar isPressed en updateTouchState() por sensor físico cuando esté disponible
 const TOUCH = {
@@ -29,7 +30,7 @@ const TOUCH = {
   expansionRate: 0.07,
   decayRate:     0.016,
   layerRates:    [0.50,  0.72,  0.91],
-  layerMaxVols:  [0.040, 0.032, 0.036],
+  layerMaxVols:  [0.055, 0.045, 0.050],
   layerThresh:   [0.08,  0.28,  0.55],
 };
 
@@ -63,9 +64,9 @@ function draw() {
   }
 
   if (started) {
+    // mouseIsPressed como sensor; ignorar el clic que inició el audio
     const t = millis() * 0.001;
-    // mouseIsPressed como sustituto del sensor táctil
-    const isPressed = mouseIsPressed;
+    const isPressed = mouseIsPressed && (t - audioStartTime > 1.5);
     if (isPressed && !touchActive) { touchActive = true; touchStartTime = millis() * 0.001; }
     if (!isPressed) touchActive = false;
     updateTouchState();
@@ -142,6 +143,7 @@ function startAudio() {
 
   userStartAudio();
   soundFormats('wav');
+  audioStartTime = millis() * 0.001;
 
   for (let i = 0; i < soundFiles.length; i++) {
     const idx = i;
@@ -157,18 +159,21 @@ function startAudio() {
     );
   }
 
-  for (let j = 0; j < 3; j++) {
-    const layerIdx = j;
-    const sndLayer = loadSound('./voces/vozsemilla.wav',
-      () => {
-        sndLayer.rate(TOUCH.layerRates[layerIdx]);
-        sndLayer.setVolume(0);
-        sndLayer.loop();
-        semillaLayers[layerIdx] = sndLayer;
-      },
-      err => console.warn('semillaLayer', layerIdx, err)
-    );
-  }
+  // cargar capas extra con retardo para no competir con los sonidos principales
+  setTimeout(() => {
+    for (let j = 0; j < 3; j++) {
+      const layerIdx = j;
+      const sndLayer = loadSound('./voces/vozsemilla.wav',
+        () => {
+          sndLayer.rate(TOUCH.layerRates[layerIdx]);
+          sndLayer.setVolume(0);
+          sndLayer.loop();
+          semillaLayers[layerIdx] = sndLayer;
+        },
+        err => console.warn('semillaLayer', layerIdx, err)
+      );
+    }
+  }, 3000);
 
   started = true;
 }
