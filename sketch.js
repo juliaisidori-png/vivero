@@ -24,23 +24,22 @@ let llamaReturnTriggered = false;
 let started = false;
 let loadedCount = 0;
 
-function preload() {
-  soundFormats('wav');
-  for (let i = 0; i < soundFiles.length; i++) {
-    const path = './voces/' + soundFiles[i];
-    sounds[i] = loadSound(path,
-      () => { loadedCount += 1; },
-      (err) => { console.warn('No se pudo cargar:', path, err); }
-    );
-  }
-}
-
 function setup() {
   createCanvas(windowWidth, windowHeight);
   textFont('Roboto');
   textAlign(CENTER, CENTER);
   noStroke();
   fill(255);
+
+  soundFormats('wav');
+  for (let i = 0; i < soundFiles.length; i++) {
+    const idx = i;
+    const path = './voces/' + soundFiles[idx];
+    sounds[idx] = loadSound(path,
+      () => { loadedCount += 1; },
+      (err) => { console.warn('No se pudo cargar:', path, err); }
+    );
+  }
 }
 
 function draw() {
