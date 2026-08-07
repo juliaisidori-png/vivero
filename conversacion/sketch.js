@@ -51,17 +51,24 @@ function draw() {
   textSize(scale * 0.018);
   text('(hacé clic para escuchar)', width / 2, height / 2 + scale * 0.12);
 
-  // indicador de expansión: línea sutil en la parte inferior
-  if (started && expansionLevel > 0) {
+  // indicador de expansión visible durante el desarrollo
+  if (started) {
     noStroke();
-    fill(255, 255, 255, 60 + expansionLevel * 80);
-    const barW = width * expansionLevel * 0.6;
-    rect(width / 2 - barW / 2, height - 3, barW, 2);
+    fill(255, 255, 255, 40 + expansionLevel * 120);
+    const barW = width * expansionLevel * 0.8;
+    rect(width / 2 - barW / 2, height - 8, barW, 6);
+    fill(touchActive ? color(255,255,180) : color(180,180,180), 150);
+    textSize(scale * 0.014);
+    text(touchActive ? 'T activa  exp:' + nf(expansionLevel,1,2) : 'manté ↑ para expandir', width / 2, height - 22);
     fill(255);
   }
 
   if (started) {
     const t = millis() * 0.001;
+    // UP arrow (keyCode 38) como sustituto del sensor táctil
+    const isPressed = keyIsDown(38);
+    if (isPressed && !touchActive) { touchActive = true; touchStartTime = millis() * 0.001; }
+    if (!isPressed) touchActive = false;
     updateTouchState();
     
     if (t > nextLlamaGate) {
@@ -207,15 +214,9 @@ function updateSemillaLayers() {
 }
 
 function keyPressed() {
-  if (!started) return;
-  if (key === 'T' || key === 't') {
-    if (!touchActive) {
-      touchActive = true;
-      touchStartTime = millis() * 0.001;
-    }
-  }
+  // reservado para sensor físico futuro
 }
 
 function keyReleased() {
-  if (key === 'T' || key === 't') touchActive = false;
+  // reservado para sensor físico futuro
 }
