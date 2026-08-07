@@ -1,7 +1,5 @@
 let sounds = [];
-let semillaOscillators = [];
-let semillaGains = [];
-let audioContext = null;
+let semillaOscs = [];
 let semillaPhase = 0;
 const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav'];
 const baseVolumes = [0.048, 0.032, 0.014, 0.120];
@@ -45,22 +43,20 @@ function draw() {
   if (started) {
     const t = millis() * 0.001;
     semillaPhase = t % 100;
-    
-    // Síntesis aditiva: modular múltiples osciladores
-    if (semillaOscillators.length > 0) {
-      const modFreq = semillaParams.modRate + 3.2 * sin(TWO_PI * (t / 19.4));
-      const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
-      const grainEffect = 0.7 + 0.3 * sin(TWO_PI * semillaParams.grainRate * t + semillaParams.grainPhase);
-      const semillaDensity = 0.4 + 0.3 * sin(TWO_PI * (t / 8.6));
-      // modFactor nunca baja de 0.6 para que la síntesis siempre sea audible
-      const modFactor = 0.6 + 0.4 * (semillaDensity * grainEffect);
 
-      for (let i = 0; i < semillaOscillators.length; i++) {
-        const osc = semillaOscillators[i];
-        const gainData = semillaGains[i];
-        const harmonicFreq = semillaBaseFreq + modAmount * sin(TWO_PI * (t / (1.0 / modFreq)));
-        osc.frequency.setValueAtTime(harmonicFreq * gainData.harmonic.freq * grainEffect, audioContext.currentTime);
-        gainData.gain.gain.setValueAtTime(gainData.harmonic.baseGain * modFactor, audioContext.currentTime);
+    // vozsemilla: síntesis aditiva con p5.Oscillator
+    if (semillaOscs.length > 0) {
+      const modAmount = semillaParams.modDepth * (0.6 + 0.4 * sin(TWO_PI * (t / 15.8)));
+      const modFreq = semillaParams.modRate + 3.2 * sin(TWO_PI * (t / 19.4));
+      const grainEffect = 0.7 + 0.3 * sin(TWO_PI * semillaParams.grainRate * t + semillaParams.grainPhase);
+      const semillaDensity = 0.5 + 0.3 * sin(TWO_PI * (t / 8.6));
+      const baseF = semillaBaseFreq + modAmount * sin(TWO_PI * modFreq * t);
+
+      const freqMults  = [1.0, 2.1, 3.2, 4.9];
+      const ampWeights = [0.30, 0.22, 0.14, 0.09];
+      for (let i = 0; i < semillaOscs.length; i++) {
+        semillaOscs[i].freq(baseF * freqMults[i] * grainEffect);
+        semillaOscs[i].amp(ampWeights[i] * semillaDensity * grainEffect, 0.02);
       }
     }
     
@@ -93,6 +89,11 @@ function draw() {
       if (snd && snd.isLoaded()) {
         let target = baseVolumes[i] + breathAmp[i] * sin(TWO_PI * (t / periods[i]) + phases[i]);
         if (i === 0) {
+          // llama solo suena durante el gate; forzar 0 cuando no está activa
+          if (llamaPresence + llamaReturnPresence <= 0) {
+            snd.setVolume(0);
+            continue;
+          }
           const distanceFactor = 0.54 + 0.34 * sin(llamaDistancePhase + t * 0.08);
           const arrivalBoost = constrain(1.0 + 0.22 * (1.0 - min((t - 34.0) / 6.0, 1.0)), 1.0, 1.22);
           const proximityBoost = constrain(1.0 + 0.16 * (llamaPresence + llamaReturnPresence), 1.0, 1.18);
@@ -126,7 +127,6 @@ function startAudio() {
   userStartAudio();
   soundFormats('wav');
 
-  let pending = soundFiles.length;
   for (let i = 0; i < soundFiles.length; i++) {
     const idx = i;
     const path = './voces/' + soundFiles[idx];
@@ -139,32 +139,15 @@ function startAudio() {
       (err) => { console.warn('No se pudo cargar:', path, err); }
     );
   }
-  
-  // Acceder al contexto de audio de p5.sound
-  audioContext = p5.soundOut.context;
-  
-  const harmonics = [
-    { freq: 1.0,  baseGain: 0.35 },
-    { freq: 2.1,  baseGain: 0.25 },
-    { freq: 3.2,  baseGain: 0.15 },
-    { freq: 4.9,  baseGain: 0.10 },
-    { freq: 6.1,  baseGain: 0.06 }
-  ];
-  
-  for (let i = 0; i < harmonics.length; i++) {
-    const osc = audioContext.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = semillaBaseFreq * harmonics[i].freq;
-    
-    const gain = audioContext.createGain();
-    gain.gain.value = harmonics[i].baseGain;
-    
-    osc.connect(gain);
-    gain.connect(p5.soundOut);
-    osc.start(audioContext.currentTime);
-    
-    semillaOscillators.push(osc);
-    semillaGains.push({ gain, harmonic: harmonics[i] });
+
+  // vozsemilla: 4 p5.Oscillators que se auto-conectan a la salida
+  const freqMults = [1.0, 2.1, 3.2, 4.9];
+  for (let i = 0; i < freqMults.length; i++) {
+    const osc = new p5.Oscillator('sine');
+    osc.freq(semillaBaseFreq * freqMults[i]);
+    osc.amp(0);
+    osc.start();
+    semillaOscs.push(osc);
   }
 
   started = true;
@@ -185,23 +168,9 @@ function windowResized() {
 }
 
 function stopAudio() {
-  for (let i = 0; i < semillaOscillators.length; i++) {
-    semillaOscillators[i].stop();
-    semillaOscillators[i].disconnect();
-    semillaGains[i].gain.disconnect();
+  for (let i = 0; i < semillaOscs.length; i++) {
+    semillaOscs[i].stop();
   }
-  semillaOscillators = [];
-  semillaGains = [];
-  started = false;
-}
-
-function stopAudio() {
-  for (let i = 0; i < semillaOscillators.length; i++) {
-    semillaOscillators[i].stop();
-    semillaOscillators[i].disconnect();
-    semillaGains[i].gain.disconnect();
-  }
-  semillaOscillators = [];
-  semillaGains = [];
+  semillaOscs = [];
   started = false;
 }
