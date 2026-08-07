@@ -1,6 +1,7 @@
 let sounds = [];
 let semillaOscillator = null;
 let semillaGain = null;
+let audioContext = null;
 let semillaPhase = 0;
 const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav'];
 const baseVolumes = [0.048, 0.032, 0.014, 0.120];
@@ -137,11 +138,20 @@ function startAudio() {
     }
   }
   
-  // Crear oscilador de vozsemilla usando p5.js
-  semillaOscillator = new p5.Oscillator('sine');
-  semillaOscillator.freq(semillaBaseFreq);
-  semillaOscillator.amp(0);
-  semillaOscillator.start();
+  // Acceder al contexto de audio de p5.sound
+  audioContext = p5.soundOut.context;
+  
+  // Crear oscilador conectado directamente a p5.soundOut
+  semillaOscillator = audioContext.createOscillator();
+  semillaOscillator.type = 'sine';
+  semillaOscillator.frequency.value = semillaBaseFreq;
+  
+  semillaGain = audioContext.createGain();
+  semillaGain.gain.value = 0.1;
+  
+  semillaOscillator.connect(semillaGain);
+  semillaGain.connect(p5.soundOut.destination);
+  semillaOscillator.start(audioContext.currentTime);
 
   started = true;
 }
