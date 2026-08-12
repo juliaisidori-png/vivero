@@ -1,17 +1,696 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Conversación</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Organismo Cuir 001 — Laboratorio de escucha</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400&display=swap"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+
+  <div id="app">
+
+    <h1>ORGANISMO CUIR 001</h1>
+    <p class="subtitle">laboratorio de escucha</p>
+
+    <button id="startButton">▶ ESCUCHAR</button>
+
+
+    <div id="mixer">
+
+
+      <!-- ==================================================
+           LLAMA
+      ================================================== -->
+
+      <section class="track" data-track="llama">
+
+        <h2>
+          LLAMA
+          <span class="track-status" id="llamaStatus">
+            ○ esperando
+          </span>
+        </h2>
+
+        <div class="controls">
+
+          <label>
+            Volumen
+            <input
+              id="llamaVolume"
+              type="range"
+              min="0"
+              max="0.5"
+              step="0.001"
+              value="0.085"
+            >
+          </label>
+
+          <label>
+            Descanso ↔ Movimiento
+            <input
+              id="llamaMovement"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Presencia inicial
+            <input
+              id="llamaPresence"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+            >
+          </label>
+
+          <label>
+            Expansión
+            <input
+              id="llamaExpansion"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Volumen latente
+            <input
+              id="llamaLatent"
+              type="range"
+              min="0"
+              max="0.3"
+              step="0.001"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Entrada
+            <input
+              id="llamaEntry"
+              type="range"
+              min="0"
+              max="120"
+              step="0.1"
+              value="34"
+            >
+          </label>
+
+          <label>
+            Duración
+            <input
+              id="llamaDuration"
+              type="range"
+              min="0.5"
+              max="30"
+              step="0.1"
+              value="6.4"
+            >
+          </label>
+
+          <label>
+            Irregularidad
+            <input
+              id="llamaIrregularity"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.5"
+            >
+          </label>
+
+          <label>
+            Contacto
+            <input
+              id="llamaContact"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+        </div>
+      </section>
+
+
+      <!-- ==================================================
+           INTENTA
+      ================================================== -->
+
+      <section class="track" data-track="intenta">
+
+        <h2>
+          INTENTA
+          <span class="track-status" id="intentaStatus">
+            ○ esperando
+          </span>
+        </h2>
+
+        <div class="controls">
+
+          <label>
+            Volumen
+            <input
+              id="intentaVolume"
+              type="range"
+              min="0"
+              max="0.5"
+              step="0.001"
+              value="0.035"
+            >
+          </label>
+
+          <label>
+            Descanso ↔ Movimiento
+            <input
+              id="intentaMovement"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Presencia inicial
+            <input
+              id="intentaPresence"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+            >
+          </label>
+
+          <label>
+            Expansión
+            <input
+              id="intentaExpansion"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Volumen latente
+            <input
+              id="intentaLatent"
+              type="range"
+              min="0"
+              max="0.3"
+              step="0.001"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Entrada
+            <input
+              id="intentaEntry"
+              type="range"
+              min="0"
+              max="120"
+              step="0.1"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Duración
+            <input
+              id="intentaDuration"
+              type="range"
+              min="0.5"
+              max="30"
+              step="0.1"
+              value="10"
+            >
+          </label>
+
+          <label>
+            Irregularidad
+            <input
+              id="intentaIrregularity"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.3"
+            >
+          </label>
+
+          <label>
+            Contacto
+            <input
+              id="intentaContact"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+        </div>
+      </section>
+
+
+      <!-- ==================================================
+           RESOPLA
+      ================================================== -->
+
+      <section class="track" data-track="resopla">
+
+        <h2>
+          RESOPLA
+          <span class="track-status" id="resoplaStatus">
+            ○ esperando
+          </span>
+        </h2>
+
+        <div class="controls">
+
+          <label>
+            Volumen
+            <input
+              id="resoplaVolume"
+              type="range"
+              min="0"
+              max="0.5"
+              step="0.001"
+              value="0.055"
+            >
+          </label>
+
+          <label>
+            Descanso ↔ Movimiento
+            <input
+              id="resoplaMovement"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Presencia inicial
+            <input
+              id="resoplaPresence"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Expansión
+            <input
+              id="resoplaExpansion"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Volumen latente
+            <input
+              id="resoplaLatent"
+              type="range"
+              min="0"
+              max="0.3"
+              step="0.001"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Entrada
+            <input
+              id="resoplaEntry"
+              type="range"
+              min="0"
+              max="120"
+              step="0.1"
+              value="7"
+            >
+          </label>
+
+          <label>
+            Duración
+            <input
+              id="resoplaDuration"
+              type="range"
+              min="0.5"
+              max="60"
+              step="0.1"
+              value="22"
+            >
+          </label>
+
+          <label>
+            Irregularidad
+            <input
+              id="resoplaIrregularity"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.2"
+            >
+          </label>
+
+          <label>
+            Contacto
+            <input
+              id="resoplaContact"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+        </div>
+      </section>
+
+
+      <!-- ==================================================
+           CRUJE
+      ================================================== -->
+
+      <section class="track" data-track="cruje">
+
+        <h2>
+          CRUJE
+          <span class="track-status" id="crujeStatus">
+            ○ esperando
+          </span>
+        </h2>
+
+        <div class="controls">
+
+          <label>
+            Volumen
+            <input
+              id="crujeVolume"
+              type="range"
+              min="0"
+              max="0.5"
+              step="0.001"
+              value="0.018"
+            >
+          </label>
+
+          <label>
+            Descanso ↔ Movimiento
+            <input
+              id="crujeMovement"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Presencia inicial
+            <input
+              id="crujePresence"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+            >
+          </label>
+
+          <label>
+            Expansión
+            <input
+              id="crujeExpansion"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Volumen latente
+            <input
+              id="crujeLatent"
+              type="range"
+              min="0"
+              max="0.3"
+              step="0.001"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Entrada
+            <input
+              id="crujeEntry"
+              type="range"
+              min="0"
+              max="120"
+              step="0.1"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Duración
+            <input
+              id="crujeDuration"
+              type="range"
+              min="0.5"
+              max="30"
+              step="0.1"
+              value="10"
+            >
+          </label>
+
+          <label>
+            Irregularidad
+            <input
+              id="crujeIrregularity"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.4"
+            >
+          </label>
+
+          <label>
+            Contacto
+            <input
+              id="crujeContact"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+        </div>
+      </section>
+
+
+      <!-- ==================================================
+           VOZSEMILLA
+      ================================================== -->
+
+      <section class="track" data-track="vozsemilla">
+
+        <h2>
+          VOZSEMILLA
+          <span class="track-status" id="vozsemillaStatus">
+            ○ esperando
+          </span>
+        </h2>
+
+        <div class="controls">
+
+          <label>
+            Volumen
+            <input
+              id="vozsemillaVolume"
+              type="range"
+              min="0"
+              max="0.5"
+              step="0.001"
+              value="0.028"
+            >
+          </label>
+
+          <label>
+            Descanso ↔ Movimiento
+            <input
+              id="vozsemillaMovement"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Presencia inicial
+            <input
+              id="vozsemillaPresence"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+            >
+          </label>
+
+          <label>
+            Expansión
+            <input
+              id="vozsemillaExpansion"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.12"
+            >
+          </label>
+
+          <label>
+            Volumen latente
+            <input
+              id="vozsemillaLatent"
+              type="range"
+              min="0"
+              max="0.3"
+              step="0.001"
+              value="0.028"
+            >
+          </label>
+
+          <label>
+            Entrada
+            <input
+              id="vozsemillaEntry"
+              type="range"
+              min="0"
+              max="120"
+              step="0.1"
+              value="0"
+            >
+          </label>
+
+          <label>
+            Duración
+            <input
+              id="vozsemillaDuration"
+              type="range"
+              min="0.1"
+              max="10"
+              step="0.1"
+              value="0.55"
+            >
+          </label>
+
+          <label>
+            Irregularidad
+            <input
+              id="vozsemillaIrregularity"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.7"
+            >
+          </label>
+
+          <label>
+            Contacto
+            <input
+              id="vozsemillaContact"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+            >
+          </label>
+
+        </div>
+      </section>
+
+    </div>
+
+
+    <!-- ==================================================
+         CONTACTO
+    ================================================== -->
+
+    <div id="contact">
+
+      <p>CONTACTO</p>
+
+      <p id="contactStatus">
+        mantené presionado el mouse o la tecla T
+      </p>
+
+      <div id="contactBar">
+        <div id="contactFill"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+
   <script src="sketch.js"></script>
+
 </body>
+
 </html>
