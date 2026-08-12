@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vivero/conversacion/style.css?v=4">
+  <link rel="stylesheet" href="/vivero/conversacion/style.css?v=5">
 </head>
 <body>
   <div id="app">
@@ -98,12 +98,19 @@
       <div id="contactBar"><div id="contactFill"></div></div>
     </div>
 
-    <div id="returnToReference">
-      <button id="resetButton" type="button">tocar la naturaleza lo menos posible</button>
+    <div id="organismActions">
+      <div id="voiceIntegration">
+        <button id="integrateVoiceButton" type="button">integrar otra voz</button>
+        <span id="recordingStatus"></span>
+      </div>
+
+      <div id="returnToReference">
+        <button id="resetButton" type="button">tocar la naturaleza lo menos posible</button>
+      </div>
     </div>
   </div>
 
-  <script src="/vivero/conversacion/sketch.js?v=3"></script>
+  <script src="/vivero/conversacion/sketch.js?v=5"></script>
   <script>
     document.getElementById('resetButton').addEventListener('click', function () {
       document.querySelectorAll('input[type="range"]').forEach(function (slider) {
