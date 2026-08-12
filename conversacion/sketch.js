@@ -1,176 +1,356 @@
-let sounds = [];
-const soundFiles = ['llama.wav', 'intenta.wav', 'resopla.wav', 'cruje.wav', 'vozsemilla.wav'];
-const baseVolumes = [0.048, 0.032, 0.014, 0.120, 0.022];
-const breathAmp    = [0.020, 0.036, 0.014, 0.088, 0.010];
-const periods      = [28.6, 22.8, 18.4, 20.5, 31.2];
-const phases       = [0.0, 2.8, 1.3, -0.6, 1.1];
-const intentaPulse = { strength: 0.024, period: 43.7, phase: 1.8 };
-const llamaInitialDelay = 50.0;
-const llamaGateMin = 45.0;
-const llamaGateMax = 65.0;
-const llamaGateDuration = 6.4;
-let nextLlamaGate = llamaInitialDelay;
-let llamaActiveUntil = 0;
-let llamaDistancePhase = 0;
-let llamaPulsePhase = 0;
-let llamaReturnTime = 120.0;
-let llamaReturnTriggered = false;
-let started = false;
-let loadedCount = 0;
-let touchActive = false;
-let touchStartTime = -1;
-let expansionLevel = 0;
-let audioStartTime = -1;
+// ============================================================
+// ORGANISMO CUIR 001 — LABORATORIO DE ESCUCHA
+// versión estable para segundo plano
+// ============================================================
 
-// sustituir mouseIsPressed por lectura del sensor cuando esté disponible
-const TOUCH = { minHold: 1.5, expansionRate: 0.07, decayRate: 0.016 };
+const tracks = {
+  llama: { file: 'llama.wav', audio: null, phase: 0.0, gain: 1.0, activa: false, proximaAparicion: 0, ultimoMovimiento: -1 },
+  intenta: { file: 'intenta.wav', audio: null, phase: 2.8, gain: 2.0 },
+  resopla: { file: 'resopla.wav', audio: null, phase: 1.3, gain: 0.5, activa: false, timer: null, proximoResoplidoReal: 0 },
+  cruje: { file: 'cruje.wav', audio: null, phase: -0.6, gain: 3.5 },
+  vozsemilla: { file: 'vozsemilla.wav', audio: null, phase: 1.1, gain: 3.0, currentRate: 1.0 }
+};
 
-function setup() {
-  createCanvas(windowWidth, windowHeight);
-  textFont('Roboto');
-  textAlign(CENTER, CENTER);
-  noStroke();
-  fill(255);
-}
+let organismoActivo = false;
+let tiempoInicio = 0;
+let contactoActivo = false;
+let tiempoInicioContacto = 0;
+let nivelContacto = 0;
+const TIEMPO_MINIMO_CONTACTO = 1.5;
+const VELOCIDAD_EXPANSION = 0.12;
+const VELOCIDAD_RETORNO = 0.04;
+const CLAVE_MEMORIA = 'viveroConversacionControles';
+let motorSonoro = null;
+let ultimoTick = performance.now();
+const INTERVALO_MOTOR = 40;
 
-function draw() {
-  background(0);
-  const scale = min(width, height);
-  textSize(scale * 0.09);
-  text('Conversación', width / 2, height / 2 - scale * 0.08);
-  textSize(scale * 0.032);
-  text('Organismo 01', width / 2, height / 2 + scale * 0.03);
-  textSize(scale * 0.018);
-  text('(hacé clic para escuchar)', width / 2, height / 2 + scale * 0.12);
+document.addEventListener('DOMContentLoaded', function () {
+  cargarControles();
+  document.querySelectorAll('input[type="range"]').forEach(slider => slider.addEventListener('input', guardarControles));
 
-  if (started) {
-    noStroke();
-    fill(255, expansionLevel > 0 ? 255 : 160);
-    textSize(scale * 0.012);
-    text(touchActive ? 'contacto  ' + nf(expansionLevel,1,2) : 'clic sostenido para expandir', width/2, height - 20);
-    fill(255, 255, 255, 40 + expansionLevel * 150);
-    rect(width/2 - width*0.3*expansionLevel, height-8, width*0.6*expansionLevel, 5);
-    fill(255);
+  for (const nombre in tracks) {
+    const track = tracks[nombre];
+    track.audio = new Audio('voces/' + track.file);
+    track.audio.preload = 'auto';
+    track.audio.volume = 0;
+    track.audio.loop = nombre !== 'llama' && nombre !== 'resopla';
+
+    if (nombre === 'resopla') {
+      if ('preservesPitch' in track.audio) track.audio.preservesPitch = true;
+      if ('mozPreservesPitch' in track.audio) track.audio.mozPreservesPitch = true;
+      if ('webkitPreservesPitch' in track.audio) track.audio.webkitPreservesPitch = true;
+    }
+    if (nombre === 'vozsemilla') {
+      if ('preservesPitch' in track.audio) track.audio.preservesPitch = false;
+      if ('mozPreservesPitch' in track.audio) track.audio.mozPreservesPitch = false;
+      if ('webkitPreservesPitch' in track.audio) track.audio.webkitPreservesPitch = false;
+    }
   }
 
-  if (started) {
-    const t = millis() * 0.001;
-    // sensor táctil: mouseIsPressed después de 1.5s del inicio
-    const isPressed = mouseIsPressed && started && (t - audioStartTime > 1.5);
-    if (isPressed && !touchActive) { touchActive = true; touchStartTime = t; }
-    else if (!isPressed) { touchActive = false; }
-    const dt = deltaTime / 1000.0;
-    if (touchActive && (t - touchStartTime) > TOUCH.minHold) {
-      expansionLevel = constrain(expansionLevel + TOUCH.expansionRate * dt, 0, 1);
-    } else if (!touchActive) {
-      expansionLevel = constrain(expansionLevel - TOUCH.decayRate * dt, 0, 1);
-    }
-    
-    if (t > nextLlamaGate) {
-      nextLlamaGate = t + random(llamaGateMin, llamaGateMax);
-      llamaActiveUntil = t + llamaGateDuration;
-      llamaDistancePhase = random(TWO_PI);
-      llamaPulsePhase = random(TWO_PI);
-    }
-    const llamaActive = t < llamaActiveUntil;
-    const llamaEnvelope = llamaActive ? sin(PI * ((t - (llamaActiveUntil - llamaGateDuration)) / llamaGateDuration)) : 0;
-    const llamaRhythm = llamaActive ? (0.45 + 0.35 * sin(TWO_PI * (t / 3.6) + llamaPulsePhase)) : 0;
-    const llamaPresence = max(llamaEnvelope, 0) * max(llamaRhythm, 0.14);
+  tracks.llama.audio.addEventListener('ended', finalizarLlamada);
+  tracks.resopla.audio.addEventListener('ended', finalizarResoplido);
+  document.getElementById('startButton').addEventListener('click', iniciarOrganismo);
 
-    let llamaReturnPresence = 0;
-    if (!llamaReturnTriggered && t >= llamaReturnTime) {
-      llamaReturnTriggered = true;
-      llamaDistancePhase = random(TWO_PI);
-      llamaPulsePhase = random(TWO_PI);
+  document.addEventListener('mousedown', function (event) {
+    if (!organismoActivo) return;
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON') return;
+    contactoActivo = true;
+    tiempoInicioContacto = performance.now();
+  });
+  document.addEventListener('mouseup', () => contactoActivo = false);
+  document.addEventListener('keydown', function (event) {
+    if (event.key.toLowerCase() === 't' && organismoActivo && !contactoActivo) {
+      contactoActivo = true;
+      tiempoInicioContacto = performance.now();
     }
-    if (llamaReturnTriggered && t < llamaReturnTime + 6.0) {
-      const returnProgress = (t - llamaReturnTime) / 6.0;
-      const returnEnvelope = sin(PI * constrain(returnProgress, 0, 1));
-      const returnRhythm = 0.6 + 0.24 * sin(TWO_PI * ((t - llamaReturnTime) / 2.8) + llamaPulsePhase);
-      llamaReturnPresence = returnEnvelope * max(returnRhythm, 0.22);
+  });
+  document.addEventListener('keyup', event => { if (event.key.toLowerCase() === 't') contactoActivo = false; });
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && organismoActivo) resincronizarOrganismo();
+  });
+  window.addEventListener('focus', function () {
+    if (organismoActivo) resincronizarOrganismo();
+  });
+});
+
+async function iniciarOrganismo() {
+  if (organismoActivo) return;
+  tiempoInicio = performance.now();
+  organismoActivo = true;
+
+  tracks.llama.activa = false;
+  tracks.llama.ultimoMovimiento = valor('llamaMovement');
+  programarProximaLlamada(0, tracks.llama.ultimoMovimiento);
+  actualizarEstadoLlama(false);
+
+  tracks.resopla.activa = false;
+  programarResoplidoEn(700);
+  actualizarTestigo('resopla', true);
+
+  for (const nombre in tracks) {
+    if (nombre === 'llama' || nombre === 'resopla') continue;
+    const track = tracks[nombre];
+    try {
+      track.audio.currentTime = 0;
+      await track.audio.play();
+      actualizarTestigo(nombre, true);
+    } catch (error) {
+      actualizarTestigo(nombre, false);
     }
-    let totalStrength = 0;
-    for (let i = 0; i < sounds.length; i++) {
-      const snd = sounds[i];
-      if (snd && snd.isLoaded()) {
-        let target = baseVolumes[i] + breathAmp[i] * sin(TWO_PI * (t / periods[i]) + phases[i]);
-        if (i === 4) {
-          // vozsemilla: latente siempre, sube con expansión
-          snd.setVolume(0.004 + expansionLevel * 0.080);
-          continue;
-        }
-        if (i === 0) {
-          // llama solo suena durante el gate; forzar 0 cuando no está activa
-          if (llamaPresence + llamaReturnPresence <= 0) {
-            snd.setVolume(0);
-            continue;
-          }
-          const distanceFactor = 0.54 + 0.34 * sin(llamaDistancePhase + t * 0.08);
-          const arrivalBoost = constrain(1.0 + 0.22 * (1.0 - min((t - 34.0) / 6.0, 1.0)), 1.0, 1.22);
-          const proximityBoost = constrain(1.0 + 0.16 * (llamaPresence + llamaReturnPresence), 1.0, 1.18);
-          target *= (llamaPresence + llamaReturnPresence) * distanceFactor * arrivalBoost * proximityBoost;
-        }
-        if (i === 2) {
-          const resoplaRamp = constrain((t - 7.0) / 22.0, 0, 1);
-          const resoplaPresence = 0.42 + 0.28 * sin(TWO_PI * (t / 11.2) + 0.9);
-          target *= resoplaRamp * resoplaPresence;
-        }
-        if (i === 1) {
-          const pulse = intentaPulse.strength * sin(TWO_PI * (t / intentaPulse.period) + intentaPulse.phase);
-          target += max(pulse, 0);
-        }
-        if (i === 3) {
-          const crujeBoost = constrain(1.0 + 1.05 * (1.0 - min(t / 1.5, 1.0)), 1.0, 2.05);
-          const earlyPresence = constrain(1.0 + 0.75 * (1.0 - min(t / 1.2, 1.0)), 1.0, 1.75);
-          const lateCue = constrain(1.0 + 0.18 * max(0, 1.0 - abs(t - 40.0) / 16.0), 1.0, 1.18);
-          target *= crujeBoost * earlyPresence * lateCue;
-        }
-        totalStrength += max(target, 0);
-        snd.setVolume(max(target, 0), 0.5);
+  }
+
+  document.getElementById('startButton').textContent = '● ORGANISMO ACTIVO';
+  ultimoTick = performance.now();
+  if (motorSonoro) clearInterval(motorSonoro);
+  motorSonoro = setInterval(actualizarOrganismo, INTERVALO_MOTOR);
+}
+
+function actualizarOrganismo() {
+  if (!organismoActivo) return;
+  const ahora = performance.now();
+  const dt = Math.min((ahora - ultimoTick) / 1000, 0.25);
+  ultimoTick = ahora;
+  const tiempo = (ahora - tiempoInicio) / 1000;
+  actualizarContacto(ahora, dt);
+  for (const nombre in tracks) actualizarTrack(nombre, tracks[nombre], tiempo);
+}
+
+function actualizarTrack(nombre, track, tiempo) {
+  const volumen = valor(nombre + 'Volume');
+  const movimiento = valor(nombre + 'Movement');
+  const presenciaInicial = valor(nombre + 'Presence');
+  const expansion = valor(nombre + 'Expansion');
+  const latente = valor(nombre + 'Latent');
+  const entrada = valor(nombre + 'Entry');
+  const duracion = valor(nombre + 'Duration');
+  const irregularidad = valor(nombre + 'Irregularity');
+  const contacto = valor(nombre + 'Contact');
+
+  let factorEntrada = 0;
+  if (tiempo >= entrada) factorEntrada = Math.min(1, (tiempo - entrada) / Math.max(0.1, duracion));
+  const factorPresencia = presenciaInicial + (1 - presenciaInicial) * factorEntrada;
+  let factorMovimiento = 1;
+
+  if (nombre === 'llama') {
+    if (!track.activa && Math.abs(movimiento - track.ultimoMovimiento) > 0.02) {
+      track.ultimoMovimiento = movimiento;
+      programarProximaLlamada(tiempo, movimiento);
+    }
+    if (!track.activa && tiempo >= track.proximaAparicion) iniciarLlamada();
+    if (track.activa) {
+      const posicion = track.audio.currentTime;
+      const duracionAudio = track.audio.duration;
+      let entradaSuave = 1, salidaSuave = 1;
+      if (Number.isFinite(duracionAudio)) {
+        entradaSuave = limitar(posicion / 0.35, 0, 1);
+        salidaSuave = limitar((duracionAudio - posicion) / 0.80, 0, 1);
       }
+      factorMovimiento = Math.min(entradaSuave, salidaSuave);
+    } else factorMovimiento = 0;
+  }
+
+  else if (nombre === 'intenta') {
+    const velocidad = 0.75 + movimiento * 7.0;
+    const onda = (Math.sin(tiempo * velocidad + track.phase) + 1) / 2;
+    const espasmo = Math.pow(onda, 12);
+    const comportamiento = 0.58 + espasmo * 0.82;
+    factorMovimiento = mezclar(1, comportamiento, movimiento);
+  }
+
+  else if (nombre === 'resopla') {
+    if (track.activa) {
+      const posicion = track.audio.currentTime;
+      const duracionAudio = track.audio.duration;
+      let entradaSuave = 1, salidaSuave = 1;
+      if (Number.isFinite(duracionAudio)) {
+        entradaSuave = limitar(posicion / 0.08, 0, 1);
+        salidaSuave = limitar((duracionAudio - posicion) / 0.08, 0, 1);
+      }
+      factorMovimiento = Math.min(entradaSuave, salidaSuave);
+    } else factorMovimiento = 0;
+  }
+
+  else if (nombre === 'cruje') {
+    const velocidad = 1.3 + movimiento * 10;
+    const fragmento1 = Math.sin(tiempo * velocidad + track.phase);
+    const fragmento2 = Math.sin(tiempo * velocidad * 1.73 + 2.1);
+    const fragmento3 = Math.sin(tiempo * velocidad * 0.61 + 4.3);
+    const textura = (fragmento1 + fragmento2 + fragmento3 + 3) / 6;
+    const umbral = movimiento * (0.45 + irregularidad * 0.35);
+    const fragmentacion = textura < umbral ? 0.03 : 0.38 + textura * 0.62;
+    factorMovimiento = mezclar(1, fragmentacion, movimiento);
+  }
+
+  else if (nombre === 'vozsemilla') {
+    const derivaLenta = Math.sin(tiempo * 0.37 + track.phase);
+    const derivaMedia = Math.sin(tiempo * 0.83 + 2.1);
+    const textura = Math.sin(tiempo * 2.31 + Math.sin(tiempo * 0.17) * 2.4);
+    const desviacion = (derivaLenta * 0.035 + derivaMedia * 0.018 + textura * irregularidad * 0.012) * movimiento;
+    const velocidadObjetivo = 1 + desviacion;
+    track.currentRate += (velocidadObjetivo - track.currentRate) * 0.025;
+    track.audio.playbackRate = track.currentRate;
+    const baile = 1 + movimiento * (derivaMedia * 0.055 + textura * irregularidad * 0.035);
+    factorMovimiento = limitar(baile, 0.82, 1.12);
+  }
+
+  const aporteContacto = nivelContacto * contacto * expansion;
+  let volumenFinal = latente + (volumen * factorPresencia * factorMovimiento) + aporteContacto;
+  if (nombre === 'llama' && !track.activa) volumenFinal = 0;
+  if (nombre === 'resopla' && !track.activa) volumenFinal = 0;
+  volumenFinal *= track.gain;
+  track.audio.volume = limitar(volumenFinal, 0, 1);
+}
+
+function iniciarResoplido() {
+  const track = tracks.resopla;
+  if (!organismoActivo || track.activa) return;
+  const movimiento = valor('resoplaMovement');
+  const irregularidad = valor('resoplaIrregularity');
+  track.activa = true;
+  const velocidadBase = mezclar(0.62, 2.40, movimiento);
+  const desvio = randomEntre(-0.05, 0.05) * irregularidad;
+  track.audio.playbackRate = limitar(velocidadBase + desvio, 0.58, 2.5);
+  track.audio.currentTime = 0;
+  const volumen = valor('resoplaVolume');
+  const latente = valor('resoplaLatent');
+  track.audio.volume = limitar((volumen + latente) * track.gain, 0, 1);
+  track.audio.play().catch(error => {
+    console.warn('No se pudo reproducir RESOPLA:', error);
+    track.activa = false;
+    programarSiguienteResoplido();
+  });
+}
+
+function finalizarResoplido() {
+  const track = tracks.resopla;
+  track.activa = false;
+  track.audio.volume = 0;
+  programarSiguienteResoplido();
+}
+
+function programarSiguienteResoplido() {
+  if (!organismoActivo) return;
+  const movimiento = valor('resoplaMovement');
+  const irregularidad = valor('resoplaIrregularity');
+  const pausaBase = mezclarPorTresPuntos(movimiento, 2.8, 0.35, 0.015);
+  const variacion = randomEntre(-0.08, 0.08) * irregularidad;
+  const pausa = limitar(pausaBase * (1 + variacion), 0.008, 3.0);
+  programarResoplidoEn(pausa * 1000);
+}
+
+function programarResoplidoEn(milisegundos) {
+  const track = tracks.resopla;
+  if (track.timer) clearTimeout(track.timer);
+  track.proximoResoplidoReal = performance.now() + milisegundos;
+  track.timer = setTimeout(function () {
+    track.timer = null;
+    iniciarResoplido();
+  }, milisegundos);
+}
+
+function resincronizarOrganismo() {
+  ultimoTick = performance.now();
+  const track = tracks.resopla;
+  if (!track.activa && organismoActivo) {
+    const restante = track.proximoResoplidoReal - performance.now();
+    if (restante <= 0) {
+      if (track.timer) clearTimeout(track.timer);
+      track.timer = null;
+      iniciarResoplido();
+    } else programarResoplidoEn(restante);
+  }
+}
+
+function iniciarLlamada() {
+  const track = tracks.llama;
+  if (track.activa) return;
+  track.activa = true;
+  track.audio.currentTime = 0;
+  track.audio.volume = 0;
+  actualizarEstadoLlama(true);
+  track.audio.play().catch(() => {
+    track.activa = false;
+    actualizarEstadoLlama(false);
+  });
+}
+
+function finalizarLlamada() {
+  const track = tracks.llama;
+  track.activa = false;
+  track.audio.volume = 0;
+  actualizarEstadoLlama(false);
+  const tiempo = tiempoActual();
+  const movimiento = valor('llamaMovement');
+  track.ultimoMovimiento = movimiento;
+  programarProximaLlamada(tiempo, movimiento);
+}
+
+function programarProximaLlamada(tiempo, movimiento) {
+  const esperaMinima = mezclar(60, 7, movimiento);
+  const esperaMaxima = mezclar(120, 18, movimiento);
+  tracks.llama.proximaAparicion = tiempo + randomEntre(esperaMinima, esperaMaxima);
+}
+
+function actualizarEstadoLlama(activa) {
+  const testigo = document.getElementById('llamaStatus');
+  if (!testigo) return;
+  testigo.textContent = activa ? '● llamando' : '○ esperando';
+  testigo.style.color = activa ? '#fff' : '#555';
+}
+
+function actualizarContacto(ahora, dt) {
+  if (contactoActivo) {
+    const sostenido = (ahora - tiempoInicioContacto) / 1000;
+    if (sostenido >= TIEMPO_MINIMO_CONTACTO) nivelContacto += VELOCIDAD_EXPANSION * dt;
+  } else nivelContacto -= VELOCIDAD_RETORNO * dt;
+  nivelContacto = limitar(nivelContacto, 0, 1);
+  actualizarInterfazContacto();
+}
+
+function actualizarInterfazContacto() {
+  const estado = document.getElementById('contactStatus');
+  const barra = document.getElementById('contactFill');
+  if (!estado || !barra) return;
+  barra.style.width = (nivelContacto * 100) + '%';
+  estado.textContent = contactoActivo ? 'contacto — expansión ' + Math.round(nivelContacto * 100) + '%' : 'mantené presionado el mouse o la tecla T';
+}
+
+function guardarControles() {
+  const controles = {};
+  document.querySelectorAll('input[type="range"]').forEach(slider => controles[slider.id] = slider.value);
+  localStorage.setItem(CLAVE_MEMORIA, JSON.stringify(controles));
+}
+
+function cargarControles() {
+  const guardado = localStorage.getItem(CLAVE_MEMORIA);
+  if (!guardado) return;
+  try {
+    const controles = JSON.parse(guardado);
+    for (const id in controles) {
+      const slider = document.getElementById(id);
+      if (slider) slider.value = controles[id];
     }
+  } catch (error) {
+    console.warn('No se pudo recuperar la configuración');
   }
 }
 
-function startAudio() {
-  if (started) return;
-
-  userStartAudio();
-  soundFormats('wav');
-
-  audioStartTime = millis() * 0.001;
-
-  for (let i = 0; i < soundFiles.length; i++) {
-    const idx = i;
-    const path = './voces/' + soundFiles[idx];
-    sounds[idx] = loadSound(path,
-      () => {
-        loadedCount += 1;
-        // llama empieza en silencio; el gate controla su volumen
-        sounds[idx].setVolume(idx === 0 ? 0 : baseVolumes[idx]);
-        sounds[idx].loop();
-      },
-      (err) => { console.warn('No se pudo cargar:', path, err); }
-    );
-  }
-
-  started = true;
+function actualizarTestigo(nombre, activo) {
+  const testigo = document.getElementById(nombre + 'Status');
+  if (!testigo) return;
+  testigo.textContent = activo ? '● sonando' : '○ sin audio';
+  testigo.style.color = activo ? '#fff' : '#555';
 }
 
-function mousePressed() {
-  startAudio();
-  return false;
+function valor(id) {
+  const control = document.getElementById(id);
+  return control ? parseFloat(control.value) : 0;
 }
-
-function touchStarted() {
-  startAudio();
-  return false;
-}
-
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-}
-
-function stopAudio() {
-  started = false;
+function tiempoActual() { return organismoActivo ? (performance.now() - tiempoInicio) / 1000 : 0; }
+function limitar(valor, minimo, maximo) { return Math.max(minimo, Math.min(maximo, valor)); }
+function mezclar(inicio, final, cantidad) { return inicio + (final - inicio) * cantidad; }
+function randomEntre(minimo, maximo) { return minimo + Math.random() * (maximo - minimo); }
+function mezclarPorTresPuntos(cantidad, inicio, medio, final) {
+  return cantidad <= 0.5 ? mezclar(inicio, medio,cantidad / 0.5) : mezclar(medio, final, (cantidad - 0.5) / 0.5);
 }
