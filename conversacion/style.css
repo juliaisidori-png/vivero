@@ -16,9 +16,16 @@ h1 { margin: 0; font-size: 32px; font-weight: 300; letter-spacing: 0.04em; }
 .subtitle { margin: 8px 0 45px; color: #777; font-size: 15px; font-weight: 300; }
 
 #startButton {
-  margin-bottom: 55px; padding: 10px 18px; background: transparent; color: #fff;
-  border: 1px solid #555; font-family: 'Roboto', sans-serif; font-size: 13px;
-  font-weight: 300; cursor: pointer; transition: border-color 0.2s ease, opacity 0.2s ease;
+  margin-bottom: 55px;
+  padding: 10px 18px;
+  background: transparent;
+  color: #fff;
+  border: 1px solid #555;
+  font-family: 'Roboto', sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  cursor: pointer;
+  transition: border-color 0.2s ease, opacity 0.2s ease;
 }
 #startButton:hover { border-color: #fff; }
 
@@ -37,13 +44,59 @@ h1 { margin: 0; font-size: 32px; font-weight: 300; letter-spacing: 0.04em; }
 #contactBar { width: 100%; height: 3px; margin-top: 18px; background: #222; overflow: hidden; }
 #contactFill { width: 0%; height: 100%; background: #fff; transition: width 0.08s linear; }
 
-#returnToReference { margin-top: 55px; text-align: right; }
-#resetButton {
-  padding: 0; background: transparent; color: #666; border: 0;
-  font-family: 'Roboto', sans-serif; font-size: 12px; font-weight: 300;
-  letter-spacing: 0.02em; cursor: pointer; transition: color 0.25s ease;
+#organismActions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 30px;
+  margin-top: 55px;
 }
+
+#voiceIntegration {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+#integrateVoiceButton,
+#resetButton,
+.remove-voice {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  font-family: 'Roboto', sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+#integrateVoiceButton { color: #aaa; }
+#integrateVoiceButton:hover { color: #fff; }
+#integrateVoiceButton.recording { color: #fff; }
+
+#recordingStatus {
+  color: #555;
+  font-size: 11px;
+  font-weight: 300;
+}
+
+#returnToReference { text-align: right; }
+#resetButton { color: #666; }
 #resetButton:hover { color: #fff; }
+
+.dynamic-track h2 {
+  position: relative;
+}
+
+.remove-voice {
+  display: block;
+  margin-top: 12px;
+  color: #444;
+  font-size: 10px;
+}
+.remove-voice:hover { color: #999; }
 
 @media (max-width: 900px) {
   .track { grid-template-columns: 1fr; gap: 25px; }
@@ -51,9 +104,16 @@ h1 { margin: 0; font-size: 32px; font-weight: 300; letter-spacing: 0.04em; }
   .track h2 { margin-bottom: 5px; }
 }
 
+@media (max-width: 620px) {
+  #organismActions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  #returnToReference { text-align: left; }
+}
+
 @media (max-width: 520px) {
   #app { width: 88vw; padding-top: 40px; }
   h1 { font-size: 27px; }
   .track label { grid-template-columns: 110px 1fr; gap: 12px; }
-  #returnToReference { text-align: left; }
 }
