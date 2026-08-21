@@ -1,17 +1,23 @@
 // ORGANISMO CUIR 001 — Entrada cíclica
 // Entrada = retiro mínimo entre ciclos
-// Duración = tiempo de presencia de cada ciclo
-// Irregularidad = variación de tiempo, volumen y tono en cada nueva aparición
+// Duración = tiempo base de presencia de cada ciclo
+// Irregularidad = variación amplia de tiempo, volumen, tono y duración
 
 const estadosEntradaCiclica = {};
 
-function sortearRasgosDelCiclo(irregularidad) {
+function sortearRasgosDelCiclo(irregularidad, duracionBase) {
   return {
-    // En 0 no hay variación. En 1, cada ciclo puede ir aprox. de 75% a 125%.
-    volumen: 1 + randomEntre(-0.25, 0.25) * irregularidad,
+    // En 1, cada ciclo puede aparecer aprox. entre 55% y 145% del volumen base.
+    volumen: 1 + randomEntre(-0.45, 0.45) * irregularidad,
 
-    // Variación de tono deliberadamente más pequeña para no cambiar la identidad de la voz.
-    tono: 1 + randomEntre(-0.06, 0.06) * irregularidad
+    // En 1, el tono/velocidad puede desviarse aprox. ±18%.
+    tono: 1 + randomEntre(-0.18, 0.18) * irregularidad,
+
+    // En 1, la duración puede ir aprox. de 45% a 180% del valor elegido.
+    duracion: Math.max(
+      0.1,
+      duracionBase * (1 + randomEntre(-0.55, 0.80) * irregularidad)
+    )
   };
 }
 
@@ -22,7 +28,8 @@ function estadoEntradaCiclica(nombre, entrada, duracion, irregularidad, tiempo) 
       inicioFase: tiempo,
       esperaActual: entrada + Math.random() * entrada * irregularidad,
       volumenCiclo: 1,
-      tonoCiclo: 1
+      tonoCiclo: 1,
+      duracionCiclo: Math.max(0.1, duracion)
     };
   }
 
@@ -30,13 +37,14 @@ function estadoEntradaCiclica(nombre, entrada, duracion, irregularidad, tiempo) 
   const transcurrido = tiempo - estado.inicioFase;
 
   if (estado.fase === 'espera' && transcurrido >= estado.esperaActual) {
-    const rasgos = sortearRasgosDelCiclo(irregularidad);
+    const rasgos = sortearRasgosDelCiclo(irregularidad, duracion);
 
     estado.fase = 'presencia';
     estado.inicioFase = tiempo;
     estado.volumenCiclo = rasgos.volumen;
     estado.tonoCiclo = rasgos.tono;
-  } else if (estado.fase === 'presencia' && transcurrido >= Math.max(0.1, duracion)) {
+    estado.duracionCiclo = rasgos.duracion;
+  } else if (estado.fase === 'presencia' && transcurrido >= estado.duracionCiclo) {
     estado.fase = 'espera';
     estado.inicioFase = tiempo;
     estado.esperaActual = entrada + Math.random() * entrada * irregularidad;
@@ -46,7 +54,7 @@ function estadoEntradaCiclica(nombre, entrada, duracion, irregularidad, tiempo) 
 
   if (estado.fase === 'presencia') {
     const dentro = tiempo - estado.inicioFase;
-    const dur = Math.max(0.1, duracion);
+    const dur = estado.duracionCiclo;
     const fade = Math.min(0.8, dur * 0.18);
     const entradaSuave = fade > 0 ? limitar(dentro / fade, 0, 1) : 1;
     const salidaSuave = fade > 0 ? limitar((dur - dentro) / fade, 0, 1) : 1;
@@ -57,6 +65,7 @@ function estadoEntradaCiclica(nombre, entrada, duracion, irregularidad, tiempo) 
     envolvente,
     volumenCiclo: estado.volumenCiclo,
     tonoCiclo: estado.tonoCiclo,
+    duracionCiclo: estado.duracionCiclo,
     fase: estado.fase
   };
 }
@@ -145,8 +154,8 @@ actualizarTrack = function(nombre, track, tiempo) {
     const textura = Math.sin(tiempo * 1.71 + track.phase * 0.7);
     const rateObjetivo = limitar(
       (mezclar(0.92, 1.30, movimiento) + textura * irregularidad * 0.035) * ciclo.tonoCiclo,
-      0.78,
-      1.48
+      0.70,
+      1.60
     );
     track.currentRate += (rateObjetivo - track.currentRate) * 0.035;
     track.audio.playbackRate = track.currentRate;
@@ -155,8 +164,6 @@ actualizarTrack = function(nombre, track, tiempo) {
 
   const aporteContacto = nivelContacto * contacto * expansion;
 
-  // La variación de volumen afecta a la voz de ese ciclo, no al volumen latente
-  // ni a la expansión producida por contacto.
   let volumenFinal = latente + (
     volumen * factorPresencia * factorMovimiento * ciclo.volumenCiclo
   ) + aporteContacto;
