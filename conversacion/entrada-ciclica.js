@@ -2,7 +2,7 @@
 // Sin expansión: duración máxima, entrada mínima, irregularidad casi nula,
 // tono apenas vivo y centro estéreo.
 // Con contacto sostenido: duración se acorta, irregularidad crece,
-// el tono se vuelve más variable y la voz se desplaza en estéreo.
+// el tono cambia por saltos discretos sobre todo cerca de la expansión máxima.
 
 const estadosEntradaCiclica = {};
 let contextoEspacial = null;
@@ -27,17 +27,31 @@ function parametrosPorExpansion(nombre, intensidad) {
   const durMax = maxSlider(nombre + 'Duration', 30);
   const durMin = minSlider(nombre + 'Duration', 0.1);
 
-  // Curva suave al principio y mucho más rápida hacia el extremo.
-  const curva = Math.pow(intensidad, 0.72);
+  const curva = Math.pow(intensidad, 0.78);
+
+  // El tono queda casi estable durante la mayor parte del recorrido.
+  // Recién en expansión alta se abre de forma marcada.
+  let tonoMin = 0.997;
+  let tonoMax = 1.003;
+
+  if (intensidad >= 0.55 && intensidad < 0.82) {
+    const t = (intensidad - 0.55) / 0.27;
+    tonoMin = mezclar(0.997, 0.92, t);
+    tonoMax = mezclar(1.003, 1.10, t);
+  } else if (intensidad >= 0.82) {
+    const t = (intensidad - 0.82) / 0.18;
+    tonoMin = mezclar(0.92, 0.62, t);
+    tonoMax = mezclar(1.10, 1.48, t);
+  }
 
   return {
     entrada: 0,
     duracion: mezclar(durMax, durMin, curva),
-    irregularidad: mezclar(0.015, 1.0, curva),
-    tonoMin: mezclar(0.99, 0.58, curva),
-    tonoMax: mezclar(1.01, 1.55, curva),
-    variacionVolumen: mezclar(0.015, 0.48, curva),
-    pan: mezclar(0, 1, curva)
+    irregularidad: mezclar(0.01, 1.0, curva),
+    tonoMin,
+    tonoMax,
+    variacionVolumen: mezclar(0.01, 0.48, curva),
+    pan: intensidad < 0.45 ? 0 : mezclar(0, 1, (intensidad - 0.45) / 0.55)
   };
 }
 
@@ -80,8 +94,6 @@ function estadoEntradaCiclica(nombre, tiempo) {
 
   const dentro = tiempo - estado.inicioCiclo;
   const dur = Math.max(0.08, estado.duracionCiclo);
-
-  // No hay silencio de Entrada: sólo una respiración mínima entre ciclos.
   const fade = Math.min(0.20, dur * 0.10);
   const entradaSuave = fade > 0 ? limitar(dentro / fade, 0, 1) : 1;
   const salidaSuave = fade > 0 ? limitar((dur - dentro) / fade, 0, 1) : 1;
@@ -150,7 +162,6 @@ function aplicarPanDelCiclo(track, ciclo) {
 const actualizarTrackBase = actualizarTrack;
 
 actualizarTrack = function(nombre, track, tiempo) {
-  // LLAMA y RESOPLA conservan por ahora sus comportamientos propios.
   if (nombre === 'llama' || nombre === 'resopla') {
     actualizarTrackBase(nombre, track, tiempo);
     return;
@@ -165,8 +176,6 @@ actualizarTrack = function(nombre, track, tiempo) {
 
   const ciclo = estadoEntradaCiclica(nombre, tiempo);
 
-  // Sin expansión la voz queda plenamente presente.
-  // A medida que expande, el ciclo empieza a respirar y fragmentarse.
   const factorPresencia = mezclar(
     1,
     presenciaInicial + (1 - presenciaInicial) * ciclo.envolvente,
@@ -193,9 +202,6 @@ actualizarTrack = function(nombre, track, tiempo) {
     const fragmento2 = Math.sin(tiempo * velocidad * 1.73 + 2.1);
     const fragmento3 = Math.sin(tiempo * velocidad * 0.61 + 4.3);
     const textura = (fragmento1 + fragmento2 + fragmento3 + 3) / 6;
-
-    // La fragmentación propia de CRUJE sigue dependiendo de Movimiento,
-    // no del antiguo control de Irregularidad.
     const umbral = movimiento * 0.62;
     const fragmentacion = textura < umbral ? 0.03 : 0.38 + textura * 0.62;
     factorMovimiento = mezclar(1, fragmentacion, movimiento);
@@ -207,42 +213,47 @@ actualizarTrack = function(nombre, track, tiempo) {
     const derivaMedia = Math.sin(tiempo * 0.83 + 2.1);
     const textura = Math.sin(tiempo * 2.31 + Math.sin(tiempo * 0.17) * 2.4);
 
-    // Su baile propio permanece, pero la expansión decide cuánto cambia de tono.
-    const desviacion = (
-      derivaLenta * 0.035 +
+    // En reposo, apenas una vida microscópica de tono.
+    // La expansión no produce glissando: el tono cambia por ciclos discretos.
+    const microVida = (
+      derivaLenta * 0.0025 +
+      derivaMedia * 0.0015 +
+      textura * 0.001
+    ) * (1 - ciclo.intensidad);
+
+    const baile = (
       derivaMedia * 0.018 +
-      textura * 0.012
-    ) * movimiento;
+      textura * 0.010
+    ) * movimiento * (1 - ciclo.intensidad * 0.75);
 
-    const velocidadObjetivo = (1 + desviacion) * ciclo.tonoCiclo;
-    track.currentRate += (velocidadObjetivo - track.currentRate) * 0.07;
-    track.audio.playbackRate = limitar(track.currentRate, 0.50, 1.65);
-
-    const baile = 1 + movimiento * (
-      derivaMedia * 0.055 +
-      textura * 0.035
+    track.audio.playbackRate = limitar(
+      (1 + microVida + baile) * ciclo.tonoCiclo,
+      0.58,
+      1.52
     );
 
-    factorMovimiento = limitar(baile, 0.82, 1.12);
+    factorMovimiento = limitar(
+      1 + movimiento * derivaMedia * 0.035,
+      0.90,
+      1.08
+    );
   }
 
   else if (track.dynamic) {
     const deriva = Math.sin(tiempo * (0.55 + movimiento * 2.8) + track.phase);
     const textura = Math.sin(tiempo * 1.71 + track.phase * 0.7);
 
-    const rateObjetivo = limitar(
-      (mezclar(0.92, 1.30, movimiento) + textura * 0.035) * ciclo.tonoCiclo,
-      0.50,
-      1.70
+    const microVida = (deriva * 0.002 + textura * 0.0015) * (1 - ciclo.intensidad);
+
+    track.audio.playbackRate = limitar(
+      (1 + microVida) * ciclo.tonoCiclo,
+      0.58,
+      1.55
     );
 
-    track.currentRate += (rateObjetivo - track.currentRate) * 0.07;
-    track.audio.playbackRate = track.currentRate;
-    factorMovimiento = limitar(1 + movimiento * deriva * 0.18, 0.72, 1.18);
+    factorMovimiento = limitar(1 + movimiento * deriva * 0.10, 0.82, 1.10);
   }
 
-  // Contacto + Expansión ya no se traduce simplemente en más volumen.
-  // El crecimiento ocurre sobre todo por proliferación, ciclos, tono y estéreo.
   const aporteContacto = nivelContacto * contacto * expansion * 0.08;
 
   let volumenFinal = latente + (
