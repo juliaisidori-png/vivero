@@ -106,6 +106,14 @@
   <script src="/vivero/conversacion/entrada-ciclica.js?v=7"></script>
   <script src="/vivero/conversacion/expansion-verborragica.js?v=6"></script>
   <script>
+    // Seguridad de interfaz: Contacto y Expansión pertenecen sólo a VOZSEMILLA.
+    ['llama', 'intenta', 'resopla', 'cruje'].forEach(function(nombre) {
+      [nombre + 'Expansion', nombre + 'Contact'].forEach(function(id) {
+        const control = document.getElementById(id);
+        if (control && control.closest('label')) control.closest('label').remove();
+      });
+    });
+
     document.getElementById('resetButton').addEventListener('click', function () {
       document.querySelectorAll('input[type="range"]').forEach(function (slider) {
         slider.value = slider.defaultValue;
