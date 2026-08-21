@@ -1,10 +1,11 @@
 // ORGANISMO CUIR 001 — EXPANSIÓN VERBORRÁGICA DE VOZSEMILLA
-// La proliferación comienza antes y crece progresivamente con el contacto.
+// La proliferación tiene una ganancia propia: no depende del volumen casi imperceptible
+// de la voz estable. Así puede empezar a oírse mucho antes del 90%.
 
 let contextoExpansion = null;
 const estadosExpansion = {};
 const fragmentosExpansionActivos = new Set();
-const MAX_FRAGMENTOS_EXPANSION = 36;
+const MAX_FRAGMENTOS_EXPANSION = 40;
 
 function asegurarContextoExpansion() {
   if (!contextoExpansion) {
@@ -40,31 +41,29 @@ function actualizarExpansionVerborragica() {
   if (!estadosExpansion[nombre]) estadosExpansion[nombre] = { proximo: 0 };
   const estado = estadosExpansion[nombre];
 
-  // Empieza a proliferar desde aproximadamente 20% de expansión.
+  // Desde 18% ya puede nacer una voz secundaria audible.
   if (intensidad < 0.18) {
-    estado.proximo = ahora + 150;
+    estado.proximo = ahora + 120;
     return;
   }
   if (ahora < estado.proximo) return;
 
-  // La curva ahora abre antes: ya en la mitad del recorrido debe sentirse
-  // claramente que la voz comienza a volverse varias.
   const normalizada = limitar((intensidad - 0.18) / 0.82, 0, 1);
-  const curva = Math.pow(normalizada, 0.48);
-  const intervaloBase = mezclar(560, 48, curva);
-  estado.proximo = ahora + intervaloBase * randomEntre(0.68, 1.12);
+  const curva = Math.pow(normalizada, 0.42);
+  const intervaloBase = mezclar(470, 52, curva);
+  estado.proximo = ahora + intervaloBase * randomEntre(0.70, 1.08);
 
+  // Cantidad deliberadamente temprana y claramente perceptible.
   let cantidad = 1;
-  if (intensidad >= 0.30) cantidad = 2;
-  if (intensidad >= 0.46) cantidad = 3;
-  if (intensidad >= 0.62) cantidad = 4;
-  if (intensidad >= 0.78) cantidad = 5;
-  if (intensidad >= 0.90) cantidad = 6;
-
-  if (cantidad > 3 && Math.random() < 0.22) cantidad -= 1;
+  if (intensidad >= 0.24) cantidad = 2;
+  if (intensidad >= 0.38) cantidad = 3;
+  if (intensidad >= 0.52) cantidad = 4;
+  if (intensidad >= 0.68) cantidad = 5;
+  if (intensidad >= 0.82) cantidad = 6;
+  if (intensidad >= 0.93) cantidad = 7;
 
   for (let i = 0; i < cantidad; i++) {
-    setTimeout(() => lanzarFragmentoExpansion(nombre, track, intensidad), i * randomEntre(18, 65));
+    setTimeout(() => lanzarFragmentoExpansion(nombre, track, intensidad), i * randomEntre(16, 58));
   }
 }
 
@@ -80,20 +79,21 @@ function lanzarFragmentoExpansion(nombre, track, intensidad) {
   fragmento.preload = 'auto';
   fragmento.loop = false;
   fragmento.volume = 1;
+
   if ('preservesPitch' in fragmento) fragmento.preservesPitch = false;
   if ('mozPreservesPitch' in fragmento) fragmento.mozPreservesPitch = false;
   if ('webkitPreservesPitch' in fragmento) fragmento.webkitPreservesPitch = false;
 
-  // Tono casi estable al principio; la diversidad tímbrica se abre después.
-  let rangoTono = 0.008;
-  if (intensidad >= 0.42 && intensidad < 0.72) {
-    rangoTono = mezclar(0.008, 0.10, (intensidad - 0.42) / 0.30);
-  } else if (intensidad >= 0.72) {
-    rangoTono = mezclar(0.10, 0.42, (intensidad - 0.72) / 0.28);
+  // Tono casi estable al comienzo; diversidad creciente sin glissando.
+  let rangoTono = 0.006;
+  if (intensidad >= 0.34 && intensidad < 0.68) {
+    rangoTono = mezclar(0.006, 0.10, (intensidad - 0.34) / 0.34);
+  } else if (intensidad >= 0.68) {
+    rangoTono = mezclar(0.10, 0.42, (intensidad - 0.68) / 0.32);
   }
 
   const desvioTono = randomEntre(1 - rangoTono, 1 + rangoTono);
-  const aceleracion = mezclar(0.99, 1.48, Math.pow(intensidad, 1.25));
+  const aceleracion = mezclar(0.995, 1.46, Math.pow(intensidad, 1.18));
   fragmento.playbackRate = limitar(aceleracion * desvioTono, 0.62, 2.05);
 
   const source = ctx.createMediaElementSource(fragmento);
@@ -103,12 +103,18 @@ function lanzarFragmentoExpansion(nombre, track, intensidad) {
   gain.connect(panner);
   panner.connect(ctx.destination);
 
-  const volumenBase = valor('vozsemillaVolume');
-  const gananciaTrack = Number.isFinite(track.gain) ? track.gain : 1;
-  const presenciaCoro = mezclar(0.42, 0.82, Math.pow(intensidad, 1.15));
-  gain.gain.value = limitar(volumenBase * gananciaTrack * presenciaCoro * randomEntre(0.82, 1.18), 0, 0.65);
+  // IMPORTANTE: las copias ya no dependen del slider de volumen de VOZSEMILLA.
+  // Tienen una presencia propia que nace baja pero audible y crece con la expansión.
+  const presenciaPropia = mezclar(0.032, 0.115, Math.pow(intensidad, 0.9));
+  gain.gain.value = limitar(
+    presenciaPropia * randomEntre(0.86, 1.14),
+    0,
+    0.16
+  );
 
-  const aperturaStereo = intensidad < 0.28 ? 0 : mezclar(0.12, 1, (intensidad - 0.28) / 0.72);
+  const aperturaStereo = intensidad < 0.22
+    ? 0
+    : mezclar(0.10, 1, (intensidad - 0.22) / 0.78);
   panner.pan.value = randomEntre(-1, 1) * aperturaStereo;
 
   const registro = { fragmento, source, gain, panner };
@@ -121,9 +127,16 @@ function lanzarFragmentoExpansion(nombre, track, intensidad) {
       const maxInicio = Math.max(margen, duracionAudio - 0.42);
       fragmento.currentTime = randomEntre(margen, maxInicio);
     }
+
     fragmento.play().catch(() => limpiarFragmentoExpansion(registro));
 
-    const duracionFragmento = mezclar(randomEntre(0.85, 1.55), randomEntre(0.38, 0.95), intensidad);
+    // Más largas en la zona media para que realmente se solapen.
+    const duracionFragmento = mezclar(
+      randomEntre(1.20, 1.95),
+      randomEntre(0.55, 1.05),
+      intensidad
+    );
+
     setTimeout(() => {
       try { fragmento.pause(); } catch (e) {}
       limpiarFragmentoExpansion(registro);
