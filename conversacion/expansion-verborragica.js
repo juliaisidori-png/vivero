@@ -1,9 +1,11 @@
 // ORGANISMO CUIR 001 — EXPANSIÓN VERBORRÁGICA DE VOZSEMILLA
-// Estrategia nueva: voces satélite persistentes por umbrales de contacto.
+// El carácter que antes aparecía al final se despliega mucho antes.
 
 let contextoExpansion = null;
 const satelitesVozsemilla = [];
-const UMBRALES_SATELITES = [0.22, 0.34, 0.48, 0.62, 0.76, 0.90];
+
+// La multiplicación comienza pronto: el 40% ya entra en una zona claramente coral.
+const UMBRALES_SATELITES = [0.14, 0.22, 0.30, 0.40, 0.55, 0.72];
 
 function asegurarContextoExpansion() {
   if (!contextoExpansion) {
@@ -45,14 +47,9 @@ function actualizarSatelitesVozsemilla() {
   while (satelitesVozsemilla.length < deseada) {
     crearSateliteVozsemilla(satelitesVozsemilla.length, intensidad);
   }
+  while (satelitesVozsemilla.length > deseada) retirarUltimoSatelite();
 
-  while (satelitesVozsemilla.length > deseada) {
-    retirarUltimoSatelite();
-  }
-
-  satelitesVozsemilla.forEach((satelite, indice) => {
-    actualizarSatelite(satelite, indice, intensidad);
-  });
+  satelitesVozsemilla.forEach((satelite, indice) => actualizarSatelite(satelite, indice, intensidad));
 }
 
 function crearSateliteVozsemilla(indice, intensidad) {
@@ -67,7 +64,6 @@ function crearSateliteVozsemilla(indice, intensidad) {
   audio.preload = 'auto';
   audio.loop = true;
   audio.volume = 1;
-
   if ('preservesPitch' in audio) audio.preservesPitch = false;
   if ('mozPreservesPitch' in audio) audio.mozPreservesPitch = false;
   if ('webkitPreservesPitch' in audio) audio.webkitPreservesPitch = false;
@@ -75,21 +71,17 @@ function crearSateliteVozsemilla(indice, intensidad) {
   const source = ctx.createMediaElementSource(audio);
   const gain = ctx.createGain();
   const panner = ctx.createStereoPanner();
-
   source.connect(gain);
   gain.connect(panner);
   panner.connect(ctx.destination);
 
-  const posiciones = [-0.72, 0.68, -0.38, 0.42, -0.92, 0.90];
-  const tonosBase = [0.985, 1.018, 0.965, 1.035, 0.94, 1.06];
+  const posiciones = [-0.78, 0.74, -0.42, 0.46, -0.94, 0.92];
+  const tonosBase = [0.982, 1.021, 0.958, 1.043, 0.925, 1.075];
 
   const satelite = {
-    audio,
-    source,
-    gain,
-    panner,
+    audio, source, gain, panner,
     panBase: posiciones[indice] ?? randomEntre(-1, 1),
-    tonoBase: tonosBase[indice] ?? randomEntre(0.94, 1.06)
+    tonoBase: tonosBase[indice] ?? randomEntre(0.93, 1.07)
   };
 
   gain.gain.value = 0;
@@ -114,42 +106,36 @@ function actualizarSatelite(satelite, indice, intensidad) {
   const ctx = asegurarContextoExpansion();
   if (!ctx) return;
 
-  const umbral = UMBRALES_SATELITES[indice] ?? 0.9;
+  const umbral = UMBRALES_SATELITES[indice] ?? 0.72;
   const desarrollo = limitar((intensidad - umbral) / Math.max(0.08, 1 - umbral), 0, 1);
 
-  // Cada nueva voz aparece ya audible y luego gana algo de presencia.
-  const gananciaObjetivo = mezclar(0.045, 0.10, Math.pow(desarrollo, 0.65));
-  satelite.gain.gain.setTargetAtTime(gananciaObjetivo, ctx.currentTime, 0.18);
+  // Las voces nacen audibles. El extremo suma densidad, pero no monopoliza la multiplicación.
+  const gananciaObjetivo = mezclar(0.058, 0.105, Math.pow(desarrollo, 0.55));
+  satelite.gain.gain.setTargetAtTime(gananciaObjetivo, ctx.currentTime, 0.22);
 
-  // Tono fijo por voz, con pequeñas variaciones discretas sólo en expansión alta.
-  let amplitudTono = 0.003;
-  if (intensidad > 0.70) amplitudTono = mezclar(0.003, 0.08, (intensidad - 0.70) / 0.30);
+  // Reposo y zona media: diferencias fijas, sin glissando.
+  // La inestabilidad tímbrica fuerte se reserva para el tramo alto.
+  let amplitudTono = 0.002;
+  if (intensidad > 0.62) amplitudTono = mezclar(0.002, 0.09, (intensidad - 0.62) / 0.38);
   const objetivoTono = satelite.tonoBase * (1 + randomEntre(-amplitudTono, amplitudTono));
-  satelite.audio.playbackRate = limitar(objetivoTono, 0.72, 1.35);
+  satelite.audio.playbackRate = limitar(objetivoTono, 0.70, 1.38);
 
-  // La apertura estéreo también crece, pero cada voz conserva su zona.
-  const apertura = mezclar(0.65, 1.0, intensidad);
-  satelite.panner.pan.setTargetAtTime(
-    limitar(satelite.panBase * apertura, -1, 1),
-    ctx.currentTime,
-    0.12
-  );
+  const apertura = mezclar(0.72, 1.0, Math.min(1, intensidad / 0.65));
+  satelite.panner.pan.setTargetAtTime(limitar(satelite.panBase * apertura, -1, 1), ctx.currentTime, 0.14);
 }
 
 function retirarUltimoSatelite() {
   const satelite = satelitesVozsemilla.pop();
   if (!satelite) return;
-
   const ctx = asegurarContextoExpansion();
-  if (ctx) satelite.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.20);
-
+  if (ctx) satelite.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.28);
   setTimeout(() => {
     try { satelite.audio.pause(); } catch (e) {}
     try { satelite.source.disconnect(); } catch (e) {}
     try { satelite.gain.disconnect(); } catch (e) {}
     try { satelite.panner.disconnect(); } catch (e) {}
     satelite.audio.src = '';
-  }, 700);
+  }, 900);
 }
 
 document.addEventListener('DOMContentLoaded', prepararExpansion);
