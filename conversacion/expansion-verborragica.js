@@ -1,11 +1,9 @@
 // ORGANISMO CUIR 001 — EXPANSIÓN VERBORRÁGICA DE VOZSEMILLA
-// La proliferación tiene una ganancia propia: no depende del volumen casi imperceptible
-// de la voz estable. Así puede empezar a oírse mucho antes del 90%.
+// Estrategia nueva: voces satélite persistentes por umbrales de contacto.
 
 let contextoExpansion = null;
-const estadosExpansion = {};
-const fragmentosExpansionActivos = new Set();
-const MAX_FRAGMENTOS_EXPANSION = 40;
+const satelitesVozsemilla = [];
+const UMBRALES_SATELITES = [0.22, 0.34, 0.48, 0.62, 0.76, 0.90];
 
 function asegurarContextoExpansion() {
   if (!contextoExpansion) {
@@ -27,137 +25,131 @@ function prepararExpansion() {
   if (start) start.addEventListener('click', asegurarContextoExpansion);
   document.addEventListener('mousedown', asegurarContextoExpansion, { once: true });
   document.addEventListener('keydown', asegurarContextoExpansion, { once: true });
-  setInterval(actualizarExpansionVerborragica, 45);
+  setInterval(actualizarSatelitesVozsemilla, 60);
 }
 
-function actualizarExpansionVerborragica() {
-  if (!organismoActivo) return;
-  const nombre = 'vozsemilla';
-  const track = tracks[nombre];
-  if (!track || !track.audio) return;
-
-  const ahora = performance.now();
-  const intensidad = intensidadExpansion(nombre);
-  if (!estadosExpansion[nombre]) estadosExpansion[nombre] = { proximo: 0 };
-  const estado = estadosExpansion[nombre];
-
-  // Desde 18% ya puede nacer una voz secundaria audible.
-  if (intensidad < 0.18) {
-    estado.proximo = ahora + 120;
-    return;
+function cantidadSatelitesDeseada(intensidad) {
+  let cantidad = 0;
+  for (const umbral of UMBRALES_SATELITES) {
+    if (intensidad >= umbral) cantidad++;
   }
-  if (ahora < estado.proximo) return;
-
-  const normalizada = limitar((intensidad - 0.18) / 0.82, 0, 1);
-  const curva = Math.pow(normalizada, 0.42);
-  const intervaloBase = mezclar(470, 52, curva);
-  estado.proximo = ahora + intervaloBase * randomEntre(0.70, 1.08);
-
-  // Cantidad deliberadamente temprana y claramente perceptible.
-  let cantidad = 1;
-  if (intensidad >= 0.24) cantidad = 2;
-  if (intensidad >= 0.38) cantidad = 3;
-  if (intensidad >= 0.52) cantidad = 4;
-  if (intensidad >= 0.68) cantidad = 5;
-  if (intensidad >= 0.82) cantidad = 6;
-  if (intensidad >= 0.93) cantidad = 7;
-
-  for (let i = 0; i < cantidad; i++) {
-    setTimeout(() => lanzarFragmentoExpansion(nombre, track, intensidad), i * randomEntre(16, 58));
-  }
+  return cantidad;
 }
 
-function lanzarFragmentoExpansion(nombre, track, intensidad) {
-  if (fragmentosExpansionActivos.size >= MAX_FRAGMENTOS_EXPANSION) return;
+function actualizarSatelitesVozsemilla() {
+  if (!organismoActivo || !tracks.vozsemilla || !tracks.vozsemilla.audio) return;
+
+  const intensidad = intensidadExpansion('vozsemilla');
+  const deseada = cantidadSatelitesDeseada(intensidad);
+
+  while (satelitesVozsemilla.length < deseada) {
+    crearSateliteVozsemilla(satelitesVozsemilla.length, intensidad);
+  }
+
+  while (satelitesVozsemilla.length > deseada) {
+    retirarUltimoSatelite();
+  }
+
+  satelitesVozsemilla.forEach((satelite, indice) => {
+    actualizarSatelite(satelite, indice, intensidad);
+  });
+}
+
+function crearSateliteVozsemilla(indice, intensidad) {
   const ctx = asegurarContextoExpansion();
-  if (!ctx) return;
+  const track = tracks.vozsemilla;
+  if (!ctx || !track || !track.audio) return;
 
   const src = track.audio.currentSrc || track.audio.src;
   if (!src) return;
 
-  const fragmento = new Audio(src);
-  fragmento.preload = 'auto';
-  fragmento.loop = false;
-  fragmento.volume = 1;
+  const audio = new Audio(src);
+  audio.preload = 'auto';
+  audio.loop = true;
+  audio.volume = 1;
 
-  if ('preservesPitch' in fragmento) fragmento.preservesPitch = false;
-  if ('mozPreservesPitch' in fragmento) fragmento.mozPreservesPitch = false;
-  if ('webkitPreservesPitch' in fragmento) fragmento.webkitPreservesPitch = false;
+  if ('preservesPitch' in audio) audio.preservesPitch = false;
+  if ('mozPreservesPitch' in audio) audio.mozPreservesPitch = false;
+  if ('webkitPreservesPitch' in audio) audio.webkitPreservesPitch = false;
 
-  // Tono casi estable al comienzo; diversidad creciente sin glissando.
-  let rangoTono = 0.006;
-  if (intensidad >= 0.34 && intensidad < 0.68) {
-    rangoTono = mezclar(0.006, 0.10, (intensidad - 0.34) / 0.34);
-  } else if (intensidad >= 0.68) {
-    rangoTono = mezclar(0.10, 0.42, (intensidad - 0.68) / 0.32);
-  }
-
-  const desvioTono = randomEntre(1 - rangoTono, 1 + rangoTono);
-  const aceleracion = mezclar(0.995, 1.46, Math.pow(intensidad, 1.18));
-  fragmento.playbackRate = limitar(aceleracion * desvioTono, 0.62, 2.05);
-
-  const source = ctx.createMediaElementSource(fragmento);
+  const source = ctx.createMediaElementSource(audio);
   const gain = ctx.createGain();
   const panner = ctx.createStereoPanner();
+
   source.connect(gain);
   gain.connect(panner);
   panner.connect(ctx.destination);
 
-  // IMPORTANTE: las copias ya no dependen del slider de volumen de VOZSEMILLA.
-  // Tienen una presencia propia que nace baja pero audible y crece con la expansión.
-  const presenciaPropia = mezclar(0.032, 0.115, Math.pow(intensidad, 0.9));
-  gain.gain.value = limitar(
-    presenciaPropia * randomEntre(0.86, 1.14),
-    0,
-    0.16
-  );
+  const posiciones = [-0.72, 0.68, -0.38, 0.42, -0.92, 0.90];
+  const tonosBase = [0.985, 1.018, 0.965, 1.035, 0.94, 1.06];
 
-  const aperturaStereo = intensidad < 0.22
-    ? 0
-    : mezclar(0.10, 1, (intensidad - 0.22) / 0.78);
-  panner.pan.value = randomEntre(-1, 1) * aperturaStereo;
+  const satelite = {
+    audio,
+    source,
+    gain,
+    panner,
+    panBase: posiciones[indice] ?? randomEntre(-1, 1),
+    tonoBase: tonosBase[indice] ?? randomEntre(0.94, 1.06)
+  };
 
-  const registro = { fragmento, source, gain, panner };
-  fragmentosExpansionActivos.add(registro);
+  gain.gain.value = 0;
+  panner.pan.value = satelite.panBase;
+  audio.playbackRate = satelite.tonoBase;
 
-  function comenzar() {
-    const duracionAudio = fragmento.duration;
-    if (Number.isFinite(duracionAudio) && duracionAudio > 0.45) {
-      const margen = Math.min(0.18, duracionAudio * 0.05);
-      const maxInicio = Math.max(margen, duracionAudio - 0.42);
-      fragmento.currentTime = randomEntre(margen, maxInicio);
+  const comenzar = () => {
+    if (Number.isFinite(audio.duration) && audio.duration > 0.4) {
+      audio.currentTime = Math.random() * Math.max(0.1, audio.duration - 0.2);
     }
+    audio.play().catch(() => {});
+  };
 
-    fragmento.play().catch(() => limpiarFragmentoExpansion(registro));
+  if (audio.readyState >= 1) comenzar();
+  else audio.addEventListener('loadedmetadata', comenzar, { once: true });
 
-    // Más largas en la zona media para que realmente se solapen.
-    const duracionFragmento = mezclar(
-      randomEntre(1.20, 1.95),
-      randomEntre(0.55, 1.05),
-      intensidad
-    );
-
-    setTimeout(() => {
-      try { fragmento.pause(); } catch (e) {}
-      limpiarFragmentoExpansion(registro);
-    }, duracionFragmento * 1000);
-  }
-
-  if (fragmento.readyState >= 1) comenzar();
-  else {
-    fragmento.addEventListener('loadedmetadata', comenzar, { once: true });
-    fragmento.addEventListener('error', () => limpiarFragmentoExpansion(registro), { once: true });
-  }
+  satelitesVozsemilla.push(satelite);
+  actualizarSatelite(satelite, indice, intensidad);
 }
 
-function limpiarFragmentoExpansion(registro) {
-  if (!fragmentosExpansionActivos.has(registro)) return;
-  fragmentosExpansionActivos.delete(registro);
-  try { registro.fragmento.pause(); } catch (e) {}
-  try { registro.source.disconnect(); } catch (e) {}
-  try { registro.gain.disconnect(); } catch (e) {}
-  try { registro.panner.disconnect(); } catch (e) {}
-  registro.fragmento.src = '';
+function actualizarSatelite(satelite, indice, intensidad) {
+  const ctx = asegurarContextoExpansion();
+  if (!ctx) return;
+
+  const umbral = UMBRALES_SATELITES[indice] ?? 0.9;
+  const desarrollo = limitar((intensidad - umbral) / Math.max(0.08, 1 - umbral), 0, 1);
+
+  // Cada nueva voz aparece ya audible y luego gana algo de presencia.
+  const gananciaObjetivo = mezclar(0.045, 0.10, Math.pow(desarrollo, 0.65));
+  satelite.gain.gain.setTargetAtTime(gananciaObjetivo, ctx.currentTime, 0.18);
+
+  // Tono fijo por voz, con pequeñas variaciones discretas sólo en expansión alta.
+  let amplitudTono = 0.003;
+  if (intensidad > 0.70) amplitudTono = mezclar(0.003, 0.08, (intensidad - 0.70) / 0.30);
+  const objetivoTono = satelite.tonoBase * (1 + randomEntre(-amplitudTono, amplitudTono));
+  satelite.audio.playbackRate = limitar(objetivoTono, 0.72, 1.35);
+
+  // La apertura estéreo también crece, pero cada voz conserva su zona.
+  const apertura = mezclar(0.65, 1.0, intensidad);
+  satelite.panner.pan.setTargetAtTime(
+    limitar(satelite.panBase * apertura, -1, 1),
+    ctx.currentTime,
+    0.12
+  );
+}
+
+function retirarUltimoSatelite() {
+  const satelite = satelitesVozsemilla.pop();
+  if (!satelite) return;
+
+  const ctx = asegurarContextoExpansion();
+  if (ctx) satelite.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.20);
+
+  setTimeout(() => {
+    try { satelite.audio.pause(); } catch (e) {}
+    try { satelite.source.disconnect(); } catch (e) {}
+    try { satelite.gain.disconnect(); } catch (e) {}
+    try { satelite.panner.disconnect(); } catch (e) {}
+    satelite.audio.src = '';
+  }, 700);
 }
 
 document.addEventListener('DOMContentLoaded', prepararExpansion);
