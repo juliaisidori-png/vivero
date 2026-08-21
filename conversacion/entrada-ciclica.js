@@ -1,91 +1,99 @@
-// ORGANISMO CUIR 001 — Entrada cíclica
-// Entrada = retiro base entre ciclos
-// Duración = tiempo base de presencia
-// Irregularidad = acelera, desordena y espacializa cada nueva aparición
+// ORGANISMO CUIR 001 — CICLOS GOBERNADOS POR EXPANSIÓN
+// Sin expansión: duración máxima, entrada mínima, irregularidad casi nula,
+// tono apenas vivo y centro estéreo.
+// Con contacto sostenido: duración se acorta, irregularidad crece,
+// el tono se vuelve más variable y la voz se desplaza en estéreo.
 
 const estadosEntradaCiclica = {};
 let contextoEspacial = null;
 
-function sortearRasgosDelCiclo(irregularidad, duracionBase) {
+function maxSlider(id, fallback) {
+  const el = document.getElementById(id);
+  return el ? parseFloat(el.max) : fallback;
+}
+
+function minSlider(id, fallback) {
+  const el = document.getElementById(id);
+  return el ? parseFloat(el.min) : fallback;
+}
+
+function intensidadExpansionCiclica(nombre) {
+  const expansion = valor(nombre + 'Expansion');
+  const contacto = valor(nombre + 'Contact');
+  return limitar(expansion * contacto * nivelContacto, 0, 1);
+}
+
+function parametrosPorExpansion(nombre, intensidad) {
+  const durMax = maxSlider(nombre + 'Duration', 30);
+  const durMin = minSlider(nombre + 'Duration', 0.1);
+
+  // Curva suave al principio y mucho más rápida hacia el extremo.
+  const curva = Math.pow(intensidad, 0.72);
+
   return {
-    volumen: 1 + randomEntre(-0.55, 0.55) * irregularidad,
-
-    // Variación de tono/velocidad mucho más amplia en el extremo.
-    tono: 1 + randomEntre(-0.35, 0.45) * irregularidad,
-
-    // Con mucha irregularidad predominan ciclos más breves, aunque algunos se estiran.
-    duracion: Math.max(
-      0.08,
-      duracionBase * (1 + randomEntre(-0.78, 0.45) * irregularidad)
-    ),
-
-    // Cada aparición ocupa una posición nueva en el campo estéreo.
-    pan: randomEntre(-1, 1) * irregularidad
+    entrada: 0,
+    duracion: mezclar(durMax, durMin, curva),
+    irregularidad: mezclar(0.015, 1.0, curva),
+    tonoMin: mezclar(0.99, 0.58, curva),
+    tonoMax: mezclar(1.01, 1.55, curva),
+    variacionVolumen: mezclar(0.015, 0.48, curva),
+    pan: mezclar(0, 1, curva)
   };
 }
 
-function sortearEspera(entrada, irregularidad) {
-  if (irregularidad <= 0) return entrada;
-
-  // Hacia 1, la espera media se comprime mucho y además se vuelve impredecible.
-  // Entrada sigue siendo la referencia, pero deja de funcionar como mínimo rígido.
-  const factorMinimo = mezclar(1, 0.08, irregularidad);
-  const factorMaximo = mezclar(1, 0.55, irregularidad);
-  return entrada * randomEntre(factorMinimo, factorMaximo);
+function sortearRasgosExpansion(params) {
+  return {
+    volumen: 1 + randomEntre(-params.variacionVolumen, params.variacionVolumen),
+    tono: randomEntre(params.tonoMin, params.tonoMax),
+    pan: randomEntre(-params.pan, params.pan)
+  };
 }
 
-function estadoEntradaCiclica(nombre, entrada, duracion, irregularidad, tiempo) {
+function estadoEntradaCiclica(nombre, tiempo) {
+  const intensidad = intensidadExpansionCiclica(nombre);
+  const params = parametrosPorExpansion(nombre, intensidad);
+
   if (!estadosEntradaCiclica[nombre]) {
     estadosEntradaCiclica[nombre] = {
-      fase: 'espera',
-      inicioFase: tiempo,
-      esperaActual: sortearEspera(entrada, irregularidad),
+      inicioCiclo: tiempo,
+      duracionCiclo: params.duracion,
       volumenCiclo: 1,
       tonoCiclo: 1,
-      duracionCiclo: Math.max(0.1, duracion),
       panCiclo: 0,
       numeroCiclo: 0
     };
   }
 
   const estado = estadosEntradaCiclica[nombre];
-  const transcurrido = tiempo - estado.inicioFase;
+  const transcurrido = tiempo - estado.inicioCiclo;
 
-  if (estado.fase === 'espera' && transcurrido >= estado.esperaActual) {
-    const rasgos = sortearRasgosDelCiclo(irregularidad, duracion);
+  if (transcurrido >= estado.duracionCiclo) {
+    const rasgos = sortearRasgosExpansion(params);
 
-    estado.fase = 'presencia';
-    estado.inicioFase = tiempo;
+    estado.inicioCiclo = tiempo;
+    estado.duracionCiclo = Math.max(0.08, params.duracion);
     estado.volumenCiclo = rasgos.volumen;
     estado.tonoCiclo = rasgos.tono;
-    estado.duracionCiclo = rasgos.duracion;
     estado.panCiclo = rasgos.pan;
     estado.numeroCiclo += 1;
-  } else if (estado.fase === 'presencia' && transcurrido >= estado.duracionCiclo) {
-    estado.fase = 'espera';
-    estado.inicioFase = tiempo;
-    estado.esperaActual = sortearEspera(entrada, irregularidad);
   }
 
-  let envolvente = 0;
+  const dentro = tiempo - estado.inicioCiclo;
+  const dur = Math.max(0.08, estado.duracionCiclo);
 
-  if (estado.fase === 'presencia') {
-    const dentro = tiempo - estado.inicioFase;
-    const dur = estado.duracionCiclo;
-    const fade = Math.min(0.45, dur * 0.15);
-    const entradaSuave = fade > 0 ? limitar(dentro / fade, 0, 1) : 1;
-    const salidaSuave = fade > 0 ? limitar((dur - dentro) / fade, 0, 1) : 1;
-    envolvente = Math.min(entradaSuave, salidaSuave);
-  }
+  // No hay silencio de Entrada: sólo una respiración mínima entre ciclos.
+  const fade = Math.min(0.20, dur * 0.10);
+  const entradaSuave = fade > 0 ? limitar(dentro / fade, 0, 1) : 1;
+  const salidaSuave = fade > 0 ? limitar((dur - dentro) / fade, 0, 1) : 1;
+  const envolvente = Math.min(entradaSuave, salidaSuave);
 
   return {
+    intensidad,
     envolvente,
     volumenCiclo: estado.volumenCiclo,
     tonoCiclo: estado.tonoCiclo,
-    duracionCiclo: estado.duracionCiclo,
     panCiclo: estado.panCiclo,
-    numeroCiclo: estado.numeroCiclo,
-    fase: estado.fase
+    numeroCiclo: estado.numeroCiclo
   };
 }
 
@@ -100,23 +108,23 @@ function habilitarVariacionDeTono(track) {
 }
 
 function prepararEspacializacion(track) {
-  if (track.pannerCiclico || !window.AudioContext && !window.webkitAudioContext) return;
+  if (track.pannerCiclico) return;
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
 
   try {
-    if (!contextoEspacial) {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      contextoEspacial = new AudioContextClass();
-    }
+    if (!contextoEspacial) contextoEspacial = new AudioContextClass();
 
     const fuente = contextoEspacial.createMediaElementSource(track.audio);
     const panner = contextoEspacial.createStereoPanner();
+
     fuente.connect(panner);
     panner.connect(contextoEspacial.destination);
 
     track.pannerCiclico = panner;
     track.ultimoNumeroCicloPaneado = -1;
   } catch (error) {
-    // Si un navegador no permite crear el nodo, el organismo sigue funcionando en mono.
     track.pannerCiclico = null;
   }
 }
@@ -133,7 +141,7 @@ function aplicarPanDelCiclo(track, ciclo) {
     track.pannerCiclico.pan.setTargetAtTime(
       ciclo.panCiclo,
       contextoEspacial.currentTime,
-      0.08
+      0.05
     );
     track.ultimoNumeroCicloPaneado = ciclo.numeroCiclo;
   }
@@ -153,13 +161,18 @@ actualizarTrack = function(nombre, track, tiempo) {
   const presenciaInicial = valor(nombre + 'Presence');
   const expansion = valor(nombre + 'Expansion');
   const latente = valor(nombre + 'Latent');
-  const entrada = valor(nombre + 'Entry');
-  const duracion = valor(nombre + 'Duration');
-  const irregularidad = valor(nombre + 'Irregularity');
   const contacto = valor(nombre + 'Contact');
 
-  const ciclo = estadoEntradaCiclica(nombre, entrada, duracion, irregularidad, tiempo);
-  const factorPresencia = presenciaInicial + (1 - presenciaInicial) * ciclo.envolvente;
+  const ciclo = estadoEntradaCiclica(nombre, tiempo);
+
+  // Sin expansión la voz queda plenamente presente.
+  // A medida que expande, el ciclo empieza a respirar y fragmentarse.
+  const factorPresencia = mezclar(
+    1,
+    presenciaInicial + (1 - presenciaInicial) * ciclo.envolvente,
+    ciclo.intensidad
+  );
+
   let factorMovimiento = 1;
 
   habilitarVariacionDeTono(track);
@@ -180,7 +193,10 @@ actualizarTrack = function(nombre, track, tiempo) {
     const fragmento2 = Math.sin(tiempo * velocidad * 1.73 + 2.1);
     const fragmento3 = Math.sin(tiempo * velocidad * 0.61 + 4.3);
     const textura = (fragmento1 + fragmento2 + fragmento3 + 3) / 6;
-    const umbral = movimiento * (0.45 + irregularidad * 0.35);
+
+    // La fragmentación propia de CRUJE sigue dependiendo de Movimiento,
+    // no del antiguo control de Irregularidad.
+    const umbral = movimiento * 0.62;
     const fragmentacion = textura < umbral ? 0.03 : 0.38 + textura * 0.62;
     factorMovimiento = mezclar(1, fragmentacion, movimiento);
     track.audio.playbackRate = ciclo.tonoCiclo;
@@ -190,37 +206,44 @@ actualizarTrack = function(nombre, track, tiempo) {
     const derivaLenta = Math.sin(tiempo * 0.37 + track.phase);
     const derivaMedia = Math.sin(tiempo * 0.83 + 2.1);
     const textura = Math.sin(tiempo * 2.31 + Math.sin(tiempo * 0.17) * 2.4);
+
+    // Su baile propio permanece, pero la expansión decide cuánto cambia de tono.
     const desviacion = (
       derivaLenta * 0.035 +
       derivaMedia * 0.018 +
-      textura * irregularidad * 0.012
+      textura * 0.012
     ) * movimiento;
 
     const velocidadObjetivo = (1 + desviacion) * ciclo.tonoCiclo;
-    track.currentRate += (velocidadObjetivo - track.currentRate) * 0.05;
-    track.audio.playbackRate = limitar(track.currentRate, 0.55, 1.75);
+    track.currentRate += (velocidadObjetivo - track.currentRate) * 0.07;
+    track.audio.playbackRate = limitar(track.currentRate, 0.50, 1.65);
 
     const baile = 1 + movimiento * (
       derivaMedia * 0.055 +
-      textura * irregularidad * 0.035
+      textura * 0.035
     );
+
     factorMovimiento = limitar(baile, 0.82, 1.12);
   }
 
   else if (track.dynamic) {
     const deriva = Math.sin(tiempo * (0.55 + movimiento * 2.8) + track.phase);
     const textura = Math.sin(tiempo * 1.71 + track.phase * 0.7);
+
     const rateObjetivo = limitar(
-      (mezclar(0.92, 1.30, movimiento) + textura * irregularidad * 0.035) * ciclo.tonoCiclo,
-      0.55,
-      1.75
+      (mezclar(0.92, 1.30, movimiento) + textura * 0.035) * ciclo.tonoCiclo,
+      0.50,
+      1.70
     );
-    track.currentRate += (rateObjetivo - track.currentRate) * 0.06;
+
+    track.currentRate += (rateObjetivo - track.currentRate) * 0.07;
     track.audio.playbackRate = track.currentRate;
     factorMovimiento = limitar(1 + movimiento * deriva * 0.18, 0.72, 1.18);
   }
 
-  const aporteContacto = nivelContacto * contacto * expansion;
+  // Contacto + Expansión ya no se traduce simplemente en más volumen.
+  // El crecimiento ocurre sobre todo por proliferación, ciclos, tono y estéreo.
+  const aporteContacto = nivelContacto * contacto * expansion * 0.08;
 
   let volumenFinal = latente + (
     volumen * factorPresencia * factorMovimiento * ciclo.volumenCiclo
