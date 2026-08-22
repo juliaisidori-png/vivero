@@ -1,5 +1,5 @@
 // ORGANISMO CUIR 001 — ACARICIA / ONDAS
-// v5: versión tímbrica blanda para evaluar la materia antes de mezclarla.
+// v6: misma versión tímbrica blanda, leyendo el nombre real del archivo: acaricia.WAV.
 // Menos filo, más cuerpo, dos ondas casi unísonas y una cola cálida muy corta.
 
 let contextoAcaricia = null;
@@ -47,7 +47,7 @@ function crearReverbCorta(ctx) {
 }
 
 function crearOndaAcaricia(indice, velocidad, pan) {
-  const audio = new Audio('voces/acaricia.wav');
+  const audio = new Audio('voces/acaricia.WAV');
   audio.preload = 'auto';
   audio.loop = true;
   audio.volume = 1;
@@ -64,12 +64,10 @@ function crearOndaAcaricia(indice, velocidad, pan) {
   const reverb = crearReverbCorta(contextoAcaricia);
   const wet = contextoAcaricia.createGain();
 
-  // Sacamos el borde punzante con decisión.
   lowpass.type = 'lowpass';
   lowpass.frequency.value = 1850;
   lowpass.Q.value = 0.35;
 
-  // Un pequeño sostén en la zona corporal del mmm.
   cuerpo.type = 'peaking';
   cuerpo.frequency.value = 330;
   cuerpo.Q.value = 0.75;
@@ -83,7 +81,6 @@ function crearOndaAcaricia(indice, velocidad, pan) {
   gain.connect(panner);
   panner.connect(contextoAcaricia.destination);
 
-  // Cola corta en paralelo: redondea, no crea una habitación.
   gain.connect(reverb);
   reverb.connect(wet);
   wet.connect(panner);
@@ -116,12 +113,8 @@ function actualizarAcaricia() {
   ondasAcaricia.forEach((onda, i) => {
     const fase = i === 0 ? 0.2 : 2.15;
     const ciclo = (Math.sin(t * (i === 0 ? 0.070 : 0.058) + fase) + 1) / 2;
-
-    // Presencia sostenida para evaluar el timbre, sin desapariciones largas.
     const piso = 0.80 + encuentro * 0.12;
     const presencia = piso + (1 - piso) * ciclo;
-
-    // Sigue claramente audible, pero ya no intentamos resolver el problema sólo con volumen.
     const preamplificacion = i === 0 ? 9.0 : 8.2;
     const gananciaObjetivo = volumen * presencia * preamplificacion;
 
