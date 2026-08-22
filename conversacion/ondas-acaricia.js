@@ -1,6 +1,6 @@
 // ORGANISMO CUIR 001 — ACARICIA / ONDAS
-// Dos corrientes largas nacidas de la misma grabación.
-// v4: ACARICIA pasa deliberadamente al primer plano para calibrar su presencia.
+// v5: versión tímbrica blanda para evaluar la materia antes de mezclarla.
+// Menos filo, más cuerpo, dos ondas casi unísonas y una cola cálida muy corta.
 
 let contextoAcaricia = null;
 let ondasAcaricia = [];
@@ -19,13 +19,31 @@ async function iniciarAcaricia() {
   if (contextoAcaricia.state === 'suspended') await contextoAcaricia.resume();
 
   ondasAcaricia = [
-    crearOndaAcaricia(0, 0.996, -0.22),
-    crearOndaAcaricia(1, 1.010, 0.22)
+    crearOndaAcaricia(0, 0.955, -0.18),
+    crearOndaAcaricia(1, 0.962, 0.18)
   ];
 
   inicioAcaricia = performance.now();
   motorAcaricia = setInterval(actualizarAcaricia, 90);
   actualizarEstadoAcaricia(true);
+}
+
+function crearReverbCorta(ctx) {
+  const convolver = ctx.createConvolver();
+  const duracion = 0.32;
+  const largo = Math.floor(ctx.sampleRate * duracion);
+  const impulso = ctx.createBuffer(2, largo, ctx.sampleRate);
+
+  for (let canal = 0; canal < 2; canal++) {
+    const datos = impulso.getChannelData(canal);
+    for (let i = 0; i < largo; i++) {
+      const x = i / largo;
+      const envolvente = Math.pow(1 - x, 4.8);
+      datos[i] = (Math.random() * 2 - 1) * envolvente * 0.28;
+    }
+  }
+  convolver.buffer = impulso;
+  return convolver;
 }
 
 function crearOndaAcaricia(indice, velocidad, pan) {
@@ -39,19 +57,36 @@ function crearOndaAcaricia(indice, velocidad, pan) {
   if ('webkitPreservesPitch' in audio) audio.webkitPreservesPitch = false;
 
   const source = contextoAcaricia.createMediaElementSource(audio);
-  const filtro = contextoAcaricia.createBiquadFilter();
+  const lowpass = contextoAcaricia.createBiquadFilter();
+  const cuerpo = contextoAcaricia.createBiquadFilter();
   const gain = contextoAcaricia.createGain();
   const panner = contextoAcaricia.createStereoPanner();
+  const reverb = crearReverbCorta(contextoAcaricia);
+  const wet = contextoAcaricia.createGain();
 
-  // Conservamos cuerpo y quitamos sólo el filo superior.
-  filtro.type = 'lowpass';
-  filtro.frequency.value = 3400;
-  filtro.Q.value = 0.2;
+  // Sacamos el borde punzante con decisión.
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = 1850;
+  lowpass.Q.value = 0.35;
 
-  source.connect(filtro);
-  filtro.connect(gain);
+  // Un pequeño sostén en la zona corporal del mmm.
+  cuerpo.type = 'peaking';
+  cuerpo.frequency.value = 330;
+  cuerpo.Q.value = 0.75;
+  cuerpo.gain.value = 4.5;
+
+  wet.gain.value = 0.12;
+
+  source.connect(lowpass);
+  lowpass.connect(cuerpo);
+  cuerpo.connect(gain);
   gain.connect(panner);
   panner.connect(contextoAcaricia.destination);
+
+  // Cola corta en paralelo: redondea, no crea una habitación.
+  gain.connect(reverb);
+  reverb.connect(wet);
+  wet.connect(panner);
 
   gain.gain.value = 0;
   panner.pan.value = pan;
@@ -67,7 +102,7 @@ function crearOndaAcaricia(indice, velocidad, pan) {
   if (audio.readyState >= 1) comenzar();
   else audio.addEventListener('loadedmetadata', comenzar, { once: true });
 
-  return { audio, filtro, gain, panner, panBase: pan };
+  return { audio, lowpass, cuerpo, gain, panner, reverb, wet, panBase: pan };
 }
 
 function actualizarAcaricia() {
@@ -82,27 +117,26 @@ function actualizarAcaricia() {
     const fase = i === 0 ? 0.2 : 2.15;
     const ciclo = (Math.sin(t * (i === 0 ? 0.070 : 0.058) + fase) + 1) / 2;
 
-    // Mucho menos retirada: primero necesitamos oír claramente el material.
-    const piso = 0.78 + encuentro * 0.14;
+    // Presencia sostenida para evaluar el timbre, sin desapariciones largas.
+    const piso = 0.80 + encuentro * 0.12;
     const presencia = piso + (1 - piso) * ciclo;
 
-    // La toma original quedó muy baja. Esta versión la trae deliberadamente adelante.
-    // Si resulta excesiva, después calibramos hacia atrás desde un punto audible.
-    const preamplificacion = i === 0 ? 12.0 : 10.5;
+    // Sigue claramente audible, pero ya no intentamos resolver el problema sólo con volumen.
+    const preamplificacion = i === 0 ? 9.0 : 8.2;
     const gananciaObjetivo = volumen * presencia * preamplificacion;
 
     onda.gain.gain.setTargetAtTime(
-      Math.min(1.8, gananciaObjetivo),
+      Math.min(1.35, gananciaObjetivo),
       contextoAcaricia.currentTime,
-      0.55
+      0.75
     );
 
-    const deriva = Math.sin(t * 0.022 + i * 2.0) * 0.045;
-    const objetivoPan = onda.panBase * (0.16 + apertura * 0.42) + deriva;
+    const deriva = Math.sin(t * 0.018 + i * 2.0) * 0.035;
+    const objetivoPan = onda.panBase * (0.14 + apertura * 0.34) + deriva;
     onda.panner.pan.setTargetAtTime(
-      Math.max(-0.38, Math.min(0.38, objetivoPan)),
+      Math.max(-0.30, Math.min(0.30, objetivoPan)),
       contextoAcaricia.currentTime,
-      2.4
+      2.8
     );
   });
 }
