@@ -1,6 +1,6 @@
 // ORGANISMO CUIR 001 — ACARICIA / ONDAS
 // Dos corrientes largas nacidas de la misma grabación.
-// Sin reverb: la armonía aparece por convivencia, aire y leve diferencia de altura.
+// Más cuerpo, menos filo: la armonía aparece por convivencia, aire y cercanía tímbrica.
 
 let contextoAcaricia = null;
 let ondasAcaricia = [];
@@ -18,10 +18,10 @@ async function iniciarAcaricia() {
   contextoAcaricia = new AudioContextClass();
   if (contextoAcaricia.state === 'suspended') await contextoAcaricia.resume();
 
-  // Dos versiones del mismo cuerpo: una casi original y otra apenas elevada.
+  // Dos versiones muy cercanas: evitamos que la segunda se vuelva filosa.
   ondasAcaricia = [
-    crearOndaAcaricia(0, 0.985, -0.34),
-    crearOndaAcaricia(1, 1.035, 0.34)
+    crearOndaAcaricia(0, 0.992, -0.30),
+    crearOndaAcaricia(1, 1.018, 0.30)
   ];
 
   inicioAcaricia = performance.now();
@@ -35,51 +35,76 @@ function crearOndaAcaricia(indice, velocidad, pan) {
   audio.loop = true;
   audio.volume = 1;
   audio.playbackRate = velocidad;
+
   if ('preservesPitch' in audio) audio.preservesPitch = false;
   if ('webkitPreservesPitch' in audio) audio.webkitPreservesPitch = false;
 
   const source = contextoAcaricia.createMediaElementSource(audio);
+  const filtro = contextoAcaricia.createBiquadFilter();
   const gain = contextoAcaricia.createGain();
   const panner = contextoAcaricia.createStereoPanner();
-  source.connect(gain);
+
+  // Filtro suave para quitar filo sin volverla oscura ni cavernosa.
+  filtro.type = 'lowpass';
+  filtro.frequency.value = 2300;
+  filtro.Q.value = 0.35;
+
+  source.connect(filtro);
+  filtro.connect(gain);
   gain.connect(panner);
   panner.connect(contextoAcaricia.destination);
+
   gain.gain.value = 0;
   panner.pan.value = pan;
 
   const comenzar = () => {
     if (Number.isFinite(audio.duration) && audio.duration > 2) {
-      const fraccion = indice === 0 ? 0.08 : 0.46;
+      const fraccion = indice === 0 ? 0.08 : 0.40;
       audio.currentTime = audio.duration * fraccion;
     }
     audio.play().catch(() => {});
   };
+
   if (audio.readyState >= 1) comenzar();
   else audio.addEventListener('loadedmetadata', comenzar, { once: true });
 
-  return { audio, gain, panner, panBase: pan };
+  return { audio, filtro, gain, panner, panBase: pan };
 }
 
 function actualizarAcaricia() {
   if (!contextoAcaricia || !ondasAcaricia.length) return;
+
   const t = (performance.now() - inicioAcaricia) / 1000;
-  const volumen = leerAcaricia('acariciaVolume', 0.027);
+  const volumen = leerAcaricia('acariciaVolume', 0.060);
   const encuentro = leerAcaricia('acariciaEncounter', 0.58);
   const apertura = leerAcaricia('acariciaSpace', 0.55);
 
   ondasAcaricia.forEach((onda, i) => {
-    // Respiraciones muy largas y desfasadas: a veces se encuentran, a veces queda una sola.
-    const fase = i === 0 ? 0.2 : 2.55;
-    const ciclo = (Math.sin(t * (i === 0 ? 0.075 : 0.061) + fase) + 1) / 2;
-    const forma = Math.pow(ciclo, 1.35);
-    const piso = 0.10 + encuentro * 0.34;
-    const presencia = piso + (1 - piso) * forma;
-    onda.gain.gain.setTargetAtTime(volumen * presencia, contextoAcaricia.currentTime, 2.8);
+    // Respiraciones largas, pero con más piso: debe sentirse como arrullo,
+    // no como apariciones lejanas.
+    const fase = i === 0 ? 0.2 : 2.15;
+    const ciclo = (Math.sin(t * (i === 0 ? 0.070 : 0.058) + fase) + 1) / 2;
+    const forma = Math.pow(ciclo, 1.18);
 
-    // El estéreo se mueve apenas: no "viaja", respira espacialmente.
-    const deriva = Math.sin(t * 0.024 + i * 2.1) * 0.10;
-    const objetivoPan = onda.panBase * (0.35 + apertura * 0.65) + deriva;
-    onda.panner.pan.setTargetAtTime(Math.max(-0.65, Math.min(0.65, objetivoPan)), contextoAcaricia.currentTime, 3.2);
+    const piso = 0.34 + encuentro * 0.30;
+    const presencia = piso + (1 - piso) * forma;
+
+    // Ganancia general más alta y densa.
+    const gananciaObjetivo = volumen * presencia * 1.45;
+    onda.gain.gain.setTargetAtTime(
+      Math.min(0.42, gananciaObjetivo),
+      contextoAcaricia.currentTime,
+      1.9
+    );
+
+    // Apertura todavía suave: más envolvente que panorámica.
+    const deriva = Math.sin(t * 0.022 + i * 2.0) * 0.065;
+    const objetivoPan = onda.panBase * (0.22 + apertura * 0.50) + deriva;
+    onda.panner.pan.setTargetAtTime(
+      Math.max(-0.48, Math.min(0.48, objetivoPan)),
+      contextoAcaricia.currentTime,
+      3.0
+    );
   });
 }
 
