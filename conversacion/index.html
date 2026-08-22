@@ -32,7 +32,7 @@
   <script src="/vivero/conversacion/expansion-verborragica.js?v=11"></script>
   <script src="/vivero/conversacion/vozsemilla-presencia.js?v=1"></script>
   <script src="/vivero/conversacion/textura-sapitos.js?v=1"></script>
-  <script src="/vivero/conversacion/ondas-acaricia.js?v=4"></script>
+  <script src="/vivero/conversacion/ondas-acaricia.js?v=5"></script>
   <script>
     ['llama', 'intenta', 'resopla', 'cruje'].forEach(function(nombre) { [nombre + 'Expansion', nombre + 'Contact'].forEach(function(id) { const control = document.getElementById(id); if (control && control.closest('label')) control.closest('label').remove(); }); });
     document.getElementById('resetButton').addEventListener('click', function () { document.querySelectorAll('input[type="range"]').forEach(function (slider) { slider.value = slider.defaultValue; slider.dispatchEvent(new Event('input', { bubbles: true })); }); });
