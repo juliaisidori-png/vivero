@@ -1,6 +1,6 @@
 // ORGANISMO CUIR 001 — ACARICIA / ONDAS
 // Dos corrientes largas nacidas de la misma grabación.
-// Más cuerpo, menos filo: la armonía aparece por convivencia, aire y cercanía tímbrica.
+// Esta versión trae la voz claramente hacia adelante: más cuerpo y presencia.
 
 let contextoAcaricia = null;
 let ondasAcaricia = [];
@@ -18,10 +18,9 @@ async function iniciarAcaricia() {
   contextoAcaricia = new AudioContextClass();
   if (contextoAcaricia.state === 'suspended') await contextoAcaricia.resume();
 
-  // Dos versiones muy cercanas: evitamos que la segunda se vuelva filosa.
   ondasAcaricia = [
-    crearOndaAcaricia(0, 0.992, -0.30),
-    crearOndaAcaricia(1, 1.018, 0.30)
+    crearOndaAcaricia(0, 0.992, -0.26),
+    crearOndaAcaricia(1, 1.018, 0.26)
   ];
 
   inicioAcaricia = performance.now();
@@ -44,10 +43,9 @@ function crearOndaAcaricia(indice, velocidad, pan) {
   const gain = contextoAcaricia.createGain();
   const panner = contextoAcaricia.createStereoPanner();
 
-  // Filtro suave para quitar filo sin volverla oscura ni cavernosa.
   filtro.type = 'lowpass';
-  filtro.frequency.value = 2300;
-  filtro.Q.value = 0.35;
+  filtro.frequency.value = 2800;
+  filtro.Q.value = 0.25;
 
   source.connect(filtro);
   filtro.connect(gain);
@@ -80,30 +78,31 @@ function actualizarAcaricia() {
   const apertura = leerAcaricia('acariciaSpace', 0.55);
 
   ondasAcaricia.forEach((onda, i) => {
-    // Respiraciones largas, pero con más piso: debe sentirse como arrullo,
-    // no como apariciones lejanas.
     const fase = i === 0 ? 0.2 : 2.15;
     const ciclo = (Math.sin(t * (i === 0 ? 0.070 : 0.058) + fase) + 1) / 2;
-    const forma = Math.pow(ciclo, 1.18);
+    const forma = Math.pow(ciclo, 1.10);
 
-    const piso = 0.34 + encuentro * 0.30;
+    // Piso mucho más alto: ACARICIA debe sentirse presente incluso cuando una onda se retira.
+    const piso = 0.52 + encuentro * 0.28;
     const presencia = piso + (1 - piso) * forma;
 
-    // Ganancia general más alta y densa.
-    const gananciaObjetivo = volumen * presencia * 1.45;
+    // Pre-amplificación interna deliberada: la grabación de origen es muy suave.
+    // El slider sigue controlando la mezcla, pero ya no necesita estar al máximo.
+    const preamplificacion = i === 0 ? 4.8 : 4.2;
+    const gananciaObjetivo = volumen * presencia * preamplificacion;
+
     onda.gain.gain.setTargetAtTime(
-      Math.min(0.42, gananciaObjetivo),
+      Math.min(0.95, gananciaObjetivo),
       contextoAcaricia.currentTime,
-      1.9
+      1.35
     );
 
-    // Apertura todavía suave: más envolvente que panorámica.
-    const deriva = Math.sin(t * 0.022 + i * 2.0) * 0.065;
-    const objetivoPan = onda.panBase * (0.22 + apertura * 0.50) + deriva;
+    const deriva = Math.sin(t * 0.022 + i * 2.0) * 0.055;
+    const objetivoPan = onda.panBase * (0.18 + apertura * 0.46) + deriva;
     onda.panner.pan.setTargetAtTime(
-      Math.max(-0.48, Math.min(0.48, objetivoPan)),
+      Math.max(-0.42, Math.min(0.42, objetivoPan)),
       contextoAcaricia.currentTime,
-      3.0
+      2.7
     );
   });
 }
